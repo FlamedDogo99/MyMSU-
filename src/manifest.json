@@ -1,18 +1,14 @@
 {
   "action": {},
-  "background" : {
+  "background": {
     "service_worker": "background.js",
     "scripts": ["background.js"]
   },
   "content_scripts": [
     {
-      "js": [
-        "content-script.js"
-      ],
+      "js": ["content-script.js"],
       "run_at": "document_start",
-      "matches": [
-        "https://experience.elluciancloud.com/montana*"
-      ]
+      "matches": ["https://experience.elluciancloud.com/montana*"]
     }
   ],
   "description": "Style MyMSU like MyInfo",
@@ -23,18 +19,12 @@
   },
   "manifest_version": 3,
   "name": "MyMSU-",
-  "permissions": [
-    "storage"
-  ],
+  "permissions": ["storage"],
   "version": "1.0.0",
   "web_accessible_resources": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "resources": [
-        "style.css"
-      ]
+      "matches": ["<all_urls>"],
+      "resources": ["style.css"]
     }
   ],
   "browser_specific_settings": {
