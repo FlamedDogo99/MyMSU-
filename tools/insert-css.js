@@ -1,20 +1,10 @@
+const fileTools = require("file-tools.js");
+
 const autoprefixer = require("autoprefixer");
 const postcss = require("postcss");
-const fs = require("fs");
 const path = require("path");
 
-/**
- * Get a file
- * @returns {Promise<string>} - the file's contents
- */
-const getFile = (path) => {
-  return new Promise((resolve, reject) => {
-    fs.readFile(path, { encoding: "utf-8" }, (error, data) => {
-      if (error) reject(error);
-      else resolve(data);
-    });
-  });
-};
+
 /**
  * Run Autoprefixer on css
  * @param {string} css - the css text to be auto-prefixed
@@ -54,29 +44,15 @@ const generateUserscript = (template, css) => {
     }
   });
 };
-/**
- *
- * @param {string} text
- * @param {string} path
- * @returns {Promise<null>}
- */
-const writeFile = (path, text) => {
-  return new Promise((resolve, reject) => {
-    fs.writeFile(path, text, (error) => {
-      if (error) reject(error);
-      else resolve();
-    });
-  });
-};
 
-getFile("tools/userscript.template.js").then((template) =>
-  getFile("tools/style.css")
+fileTools.getFile("tools/userscript.template.js").then((template) =>
+  fileTools.getFile("tools/style.css")
     .then((style) => runAutoprefixer(style))
     .then((css) => {
       const stylePath = path.resolve("src/style.css");
       const userscriptPath = path.resolve("userscript/myinfominus.user.js");
       return generateUserscript(template, css)
-        .then((userscript) => writeFile(userscriptPath, userscript))
-        .then(() => writeFile(stylePath, css));
+        .then((userscript) => fileTools.writeFile(userscriptPath, userscript))
+        .then(() => fileTools.writeFile(stylePath, css));
     })
 );

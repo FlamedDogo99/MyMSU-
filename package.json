@@ -15,7 +15,10 @@
   "type": "commonjs",
   "scripts": {
     "prettier": "npx prettier src/. --write",
-    "build": " node tools/build.js"
+    "insert-css": "node tools/insert-css.js",
+    "package-chrome": "sh tools/package-extension.sh chrome",
+    "package-edge": "sh tools/package-extension.sh edge",
+    "package-firefox": "sh tools/package-extension.sh firefox"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
