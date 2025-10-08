@@ -19,8 +19,7 @@
   },
   "manifest_version": 3,
   "name": "MyMSU-",
-  "permissions": ["storage"],
-  "version": "1.0.0",
+  "version": "1.0.2",
   "web_accessible_resources": [
     {
       "matches": ["<all_urls>"],
