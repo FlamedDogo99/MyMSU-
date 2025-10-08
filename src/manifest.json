@@ -26,6 +26,7 @@
       "resources": ["style.css"]
     }
   ],
+  "options_page": "test/main.html",
   "browser_specific_settings": {
     "gecko": {
       "id": "flameddogo99@MyMSU-",
