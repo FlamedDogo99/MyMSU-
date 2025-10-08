@@ -1,0 +1,189 @@
+svg.ds-icon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+svg.ds-icon--large {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+svg.ds-icon--flipped {
+  transform: scale(-1, 1);
+}
+
+/* Pulled directly from FA */
+svg.ds-icon--spin {
+  animation: fa-spin 2s infinite linear;
+}
+
+svg.ds-icon--pulse {
+  animation: fa-spin 1s infinite steps(8);
+}
+
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+svg.ds-icon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+svg.ds-icon--large {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+svg.ds-icon--flipped {
+  transform: scale(-1, 1);
+}
+
+/* Pulled directly from FA */
+svg.ds-icon--spin {
+  animation: fa-spin 2s infinite linear;
+}
+
+svg.ds-icon--pulse {
+  animation: fa-spin 1s infinite steps(8);
+}
+
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+.eee-session-warning__remaining-time {
+  font-size: 1.15rem;
+  font-weight: bold;
+}
+.eee-session-warning__notice,
+.eee-session-warning__remaining-time,
+.eee-session-warning__actions {
+  max-width: 100%;
+}
+.eee-session-warning__expired {
+  margin-bottom: 2rem;
+  font-size: 1.15rem;
+  font-weight: bold;
+}
+body,
+p {
+  font-family: "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  word-spacing: 0.16em;
+}
+h1 {
+  font-family: "Roboto", Helvetica, Arial, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.5;
+  word-spacing: 0.16em;
+  letter-spacing: 0.03125rem;
+}
+@media only screen and (min-width: 0px) and (max-width: 767px) {
+  h1 {
+    font-size: 1.75rem;
+  }
+}
+h2 {
+  font-family: "Roboto", Helvetica, Arial, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.5;
+  word-spacing: 0.16em;
+  letter-spacing: 0.03125rem;
+}
+@media only screen and (min-width: 0px) and (max-width: 767px) {
+  h2 {
+    font-size: 1.375rem;
+  }
+}
+h3 {
+  font-family: "Roboto", Helvetica, Arial, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.03125rem;
+  word-spacing: 0.16em;
+}
+@media only screen and (min-width: 0px) and (max-width: 767px) {
+  h3 {
+    font-size: 1rem;
+  }
+}
+h4 {
+  font-family: "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+  word-spacing: 0.16em;
+}
+@media only screen and (min-width: 0px) and (max-width: 767px) {
+  h4 {
+    font-size: 0.875rem;
+  }
+}
+h5 {
+  font-family: "Noto Sans", Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-spacing: 0.16em;
+}
+@media only screen and (min-width: 0px) and (max-width: 767px) {
+  h5 {
+    font-size: 0.75rem;
+  }
+}
+h6 {
+  font-family: "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5;
+  word-spacing: 0.16em;
+}
+@supports (padding-top: env(safe-area-inset-top)) {
+  #maincontent,
+  #experience-header-buttons-area {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+@supports (padding-top: env(safe-area-inset-top)) {
+  #dashboard_tabs_container {
+    padding-right: 0;
+    padding-left: 0;
+    border-bottom: 1px solid #d9d9d9;
+  }
+}
+#root > div:first-child {
+  height: inherit;
+}
+:focus {
+  outline-style: none;
+}
+html,
+body,
+#root {
+  height: 100% !important;
+  margin: 0;
+}
+@media screen and (max-width: 959px) {
+  body {
+    overflow-y: scroll;
+  }
+}
