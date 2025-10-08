@@ -21,7 +21,7 @@ fileTools.copyFiles("src/", "build/temp/")
           default:
             throw new TypeError("Unknown browser target: " + target);
         }
-        return JSON.stringify(json);
+        return JSON.stringify(json,null, 2);
       })
       .then(manifest => fileTools.writeFile("build/temp/manifest.json", manifest))
       .catch(reason => {

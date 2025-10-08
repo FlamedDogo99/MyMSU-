@@ -1,4 +1,11 @@
 node tools/build-extension.js "$1"
-npx prettier build/temp/. --write
-zip -r "build/MyMSU-$1" build/temp/.
-if [ -d "build/temp" ]; then rm -Rf "build/temp"; fi
+cd build/temp || exit
+zip -r "MyMSU-$1.zip" .
+mv "MyMSU-$1.zip" "../"
+cd ../ || exit
+if [ -d "temp" ]; then rm -Rf "temp"; fi
+cd ../ || exit
+echo "Successfully created build for $1"
+
+
+
