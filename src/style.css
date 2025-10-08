@@ -38,8 +38,9 @@ body,
 .MuiDrawer-root > * {
   -webkit-transition: none !important;
   -moz-transition: none !important;
-  -o-transition: none !important;
   transition: none !important;
+  -webkit-animation: none !important;
+  -moz-animation: none !important;
   animation: none !important;
 }
 /*Announcements Tweaks*/
@@ -64,6 +65,9 @@ div[aria-label="Announcements"] > #sliding-carousel-container > div > div {
   width: auto;
   height: auto;
   padding: 2px;
+  -webkit-transform: none !important;
+  -moz-transform: none !important;
+  -ms-transform: none !important;
   transform: none !important;
   margin: 4px;
   background: #ffffcc !important;
@@ -143,6 +147,10 @@ div[aria-label="Announcements"] > #sliding-carousel-container > div > div {
   margin-top: 60px;
 }
 #experience-header {
+  -webkit-box-pack: right;
+  -webkit-justify-content: right;
+  -moz-box-pack: right;
+  -ms-flex-pack: right;
   justify-content: right;
 }
 #experience-header > a[data-pendo-feature="experience-header-logo"] > img {
@@ -161,6 +169,10 @@ div[aria-label="Announcements"] > #sliding-carousel-container > div > div {
   text-decoration: none;
   width: 5em;
   margin: 0;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  -moz-box-pack: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }
 #experience-header > a[data-pendo-feature="experience-header-logo"]:hover {
@@ -168,6 +180,7 @@ div[aria-label="Announcements"] > #sliding-carousel-container > div > div {
 }
 #experience-header *:focus {
   outline: none;
+  -webkit-box-shadow: none;
   box-shadow: none;
 }
 #experience-header > span:empty,
@@ -237,6 +250,9 @@ body > div[role="tooltip"] {
   bottom: 0;
   width: 1em;
   background: #cbcbcb;
+  -webkit-transform: skew(12deg);
+  -moz-transform: skew(12deg);
+  -ms-transform: skew(12deg);
   transform: skew(12deg);
   border-radius: 0 5px 0 0;
 }
@@ -251,10 +267,14 @@ body > div[role="tooltip"] {
   bottom: 0;
   width: 1em;
   background: #cbcbcb;
+  -webkit-transform: skew(-12deg);
+  -moz-transform: skew(-12deg);
+  -ms-transform: skew(-12deg);
   transform: skew(-12deg);
   border-radius: 5px 0 0 0;
 }
 .MuiTabs-flexContainer[role="tablist"] button:focus {
+  -webkit-box-shadow: none;
   box-shadow: none;
 }
 .MuiTabs-flexContainer[role="tablist"] button.Mui-selected {
@@ -284,6 +304,7 @@ body > div[role="tooltip"] {
 }
 .MuiCard-root,
 .MuiPaper-rounded {
+  -webkit-box-shadow: none !important;
   box-shadow: none !important;
   border: 1px black solid !important;
   border-radius: 0 !important;
@@ -332,9 +353,12 @@ body > div[role="tooltip"] {
 .MuiFormControl-root > .MuiInput-root > input {
   width: revert;
   opacity: revert;
+  -webkit-transition: revert;
+  -moz-transition: revert;
   transition: revert;
-  -webkit-transition: none;
   -webkit-appearance: auto;
+  -moz-appearance: auto;
+  appearance: auto;
   font-family:
     Verdana,
     Arial Narrow,
@@ -342,11 +366,17 @@ body > div[role="tooltip"] {
     sans-serif;
   padding: unset;
   border: revert;
+  -webkit-box-sizing: revert;
+  -moz-box-sizing: revert;
   box-sizing: revert;
   background: revert;
   -webkit-tap-highlight-color: unset;
   min-width: unset;
+  -webkit-animation-name: none;
+  -moz-animation-name: none;
   animation-name: none;
+  -webkit-animation-duration: unset;
+  -moz-animation-duration: unset;
   animation-duration: unset;
 }
 .MuiFormControl-root > .MuiInput-root > input::-webkit-input-placeholder,
@@ -415,6 +445,8 @@ body > div[role="tooltip"] {
   > span[role="listitem"]
   > .MuiButtonBase-root.MuiChip-deletableColorDefault:hover {
   color: red;
+  -webkit-text-decoration-color: red;
+  -moz-text-decoration-color: red;
   text-decoration-color: red;
 }
 #sliding-carousel-container
@@ -423,6 +455,8 @@ body > div[role="tooltip"] {
   > span[role="listitem"]
   > .MuiButtonBase-root.MuiChip-deletableColorDefault:hover:before {
   color: red;
+  -webkit-text-decoration-color: red;
+  -moz-text-decoration-color: red;
   text-decoration-color: red;
 }
 #sliding-carousel-container
@@ -436,12 +470,13 @@ body > div[role="tooltip"] {
 .MuiList-root:has(.MuiListItem-root) {
   background-color: white;
   border: 1px solid rgb(118, 118, 118);
-  -webkit-border-radius: 4px;
-  -moz-border-radius: 4px;
   border-radius: 4px;
+  -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
   min-height: 1.5em;
   -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
 }
 .MuiListItem-root > .MuiListItemText-root > .MuiTypography-root {
   font-family: "Noto Sans", Helvetica, Arial, sans-serif;
