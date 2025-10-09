@@ -1,8 +1,5 @@
 # MyMSU-
 
-### Missing the 1990's aesthetic of Montana State University's MyInfo website?
-MyMSU- brings back that nostalgic look of MyMSU, removing unnecessary animations, scrolling and clutter.
-
 [![Chrome Web Store](.github/readme-images/chrome-extension-badge.png)](https://chrome.google.com/webstore/detail/ffjonbbbbafjifhceejijkkpkaalfhmn)
 [![Firefox Add-ons](.github/readme-images/firefox-addon-badge.png)](https://addons.mozilla.org/firefox/addon/mymsu-/)
 [![Edge Add-ons](.github/readme-images/edge-addon-badge.png)](https://microsoftedge.microsoft.com/addons/detail/mymsu-/ihgglaeohfaojihajollnckfpdjdnbmn)
@@ -16,15 +13,28 @@ MyMSU- brings back that nostalgic look of MyMSU, removing unnecessary animations
 [![](https://img.shields.io/github/v/release/FlamedDogo99/MyMSU-?style=flat-square&logo=github&logoColor=white&label=GitHub&color=181717)](https://github.com/FlamedDogo99/MyMSU-/releases)
 [![](https://img.shields.io/github/license/FlamedDogo99/MyMSU-?style=flat-square)](https://github.com/FlamedDogo99/MyMSU-/blob/master/LICENSE)
 
-### Installation
+## About
 
-MyMSU- is currently a userscript and a browser extension for Chrome, Firefox, and Edge.
+Missing the 1990's aesthetic of Montana State University's MyInfo website?
+MyMSU- brings back that nostalgic look of MyMSU, removing unnecessary animations, scrolling and clutter.
 
-As MyMSU- is still awaiting verification as a browser extension, the easiest way to use it
-is through a userscript application. The userscript can be found [here](https://raw.githubusercontent.com/FlamedDogo99/MyMSU-/refs/heads/main/userscript/myinfominus.user.js).
+Need to disable the stylesheet quickly? No problem! Just press the extension icon <img src="./src/icons/icon-on-128.png" width="14px"></img>
 
+Now lets see some comparisons:
+
+|                        Bland, modern MyMSU                        |                   Stylized, performant MyMSU-                   |
+|:-----------------------------------------------------------------:|:---------------------------------------------------------------:|
+|      ![Main Current](.github/readme-images/main-current.png)      |      ![Main Better](.github/readme-images/main-better.png)      |
+| ![All Cards Current](.github/readme-images/all-cards-current.png) | ![All Cards Better](.github/readme-images/all-cards-better.png) |
+
+## Manual Installation
+
+Want to use MyMSU- but can't install it through Chrome, Firefox or Edge? No problem! All changes to the DOM
+are done through a single stylesheet, allowing MyInfo- to easily be packaged as a userscript, found [here](https://raw.githubusercontent.com/FlamedDogo99/MyMSU-/refs/heads/main/userscript/myinfominus.user.js).
+
+What userscript application should I use?
 <details>
-<summary>Recommended Userscript Applications: </summary>
+<summary>Read more</summary>
 
 ---
 
@@ -48,3 +58,6 @@ If you want to download the source, no building is required. The best way to dow
 ```sh
 git clone https://github.com/FlamedDogo99/MyMSU-.git
 ```
+## License
+
+MyMSU- is licensed under the terms of the [MIT License](https://github.com/FlamedDogo99/EaglerMobile/blob/main/LICENSE).
