@@ -16,7 +16,7 @@
 ## About
 
 Missing the 1990's aesthetic of Montana State University's MyInfo website?
-MyMSU- brings back that nostalgic look of MyMSU, removing unnecessary animations, scrolling and clutter.
+MyMSU- brings back that nostalgic look of MyInfo, removing unnecessary animations, scrolling and clutter.
 
 Need to disable the stylesheet quickly? No problem! Just press the extension icon <img src="./src/icons/icon-on-128.png" width="14px"></img>
 
