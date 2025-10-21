@@ -181,9 +181,6 @@ div[aria-label="Announcements"] > #sliding-carousel-container > div > div {
   text-decoration: underline;
   color: #026bc8 !important;
 }
-body > div[role="tooltip"] {
-  display: none;
-}
 /*Nav Bar Tweaks*/
 .MuiTabs-root .tab-scroll-button {
   display: none;

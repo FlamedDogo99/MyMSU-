@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyInfoMinus
 // @namespace    https://github.com/FlamedDogo99/MyMSU-
-// @version      1.0.2
+// @version      1.2.1
 // @description  Styles MyMSU like MyInfo
 // @author       FlamedDogo99
 // @match        https://experience.elluciancloud.com/montana*

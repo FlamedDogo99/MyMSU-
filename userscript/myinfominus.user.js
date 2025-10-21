@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MyInfoMinus
 // @namespace    https://github.com/FlamedDogo99/MyMSU-
-// @version      1.0.1
+// @version      1.2.1
 // @description  Styles MyMSU like MyInfo
 // @author       FlamedDogo99
 // @match        https://experience.elluciancloud.com/montana*
@@ -221,9 +221,6 @@ div[aria-label="Announcements"] > #sliding-carousel-container > div > div {
   background: transparent !important;
   text-decoration: underline;
   color: #026bc8 !important;
-}
-body > div[role="tooltip"] {
-  display: none;
 }
 /*Nav Bar Tweaks*/
 .MuiTabs-root .tab-scroll-button {

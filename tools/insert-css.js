@@ -1,4 +1,4 @@
-const fileTools = require("file-tools.js");
+const fileTools = require("./file-tools");
 
 const autoprefixer = require("autoprefixer");
 const postcss = require("postcss");
@@ -11,7 +11,7 @@ const path = require("path");
  * @returns {Promise<string>}
  */
 const runAutoprefixer = (css) => {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     postcss([autoprefixer])
       .process(css)
       .then((result) => {
