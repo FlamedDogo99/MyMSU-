@@ -14,6 +14,16 @@ window.fetch = async (...args) => {
       }
     } catch (_) {}
   }
+  function overrideText(contains, callback) {
+    try {
+      if (resource.indexOf(contains) !== -1) {
+        response.text = () => response
+          .clone()
+          .text()
+          .then((data) => callback(data))
+      }
+    } catch(_) {}
+  }
   const response = await originalFetch.call(this, ...args);
   overrideJson("api/locked-cards", (data) => {
     if (config.method === "GET" || !config.method) data.cards = []; // Remove list of locked cards
@@ -35,5 +45,8 @@ window.fetch = async (...args) => {
     }
     return data;
   });
+  overrideText("425de6281097a59e8877", (data) => {
+    return "debugger;" + data;
+  })
   return response;
 };
