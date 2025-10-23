@@ -6,15 +6,9 @@
   },
   "content_scripts": [
     {
-      "js": ["content-script.js"],
+      "js": ["content-script.js", "experimental.js"],
       "run_at": "document_start",
       "matches": ["https://experience.elluciancloud.com/montana*"]
-    },
-    {
-      "js": ["experimental.js"],
-      "run_at": "document_start",
-      "matches": ["https://experience.elluciancloud.com/montana*"],
-      "world": "MAIN"
     }
   ],
   "description": "Style MyMSU like MyInfo",
@@ -29,7 +23,7 @@
   "web_accessible_resources": [
     {
       "matches": ["<all_urls>"],
-      "resources": ["style.css"]
+      "resources": ["style.css", "experimental.css", "injected.js"]
     }
   ],
   "browser_specific_settings": {

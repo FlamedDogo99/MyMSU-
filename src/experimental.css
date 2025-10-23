@@ -1,0 +1,16 @@
+* {
+    font-family: Verdana, Arial Narrow, helvetica, sans-serif;
+}
+
+.card-title {
+    display: inline;
+}
+.title-container {
+    font-size: 1em;
+    border-bottom-width: 2px;
+    border-bottom-color: #222222;
+    border-bottom-style: solid;
+}
+.card-contents {
+    font-size: 0.8em;
+}
