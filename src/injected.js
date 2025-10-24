@@ -41,52 +41,18 @@
 
   // creates a shadow dom with an ordered set of elements
   class OrderedBuilder {
-    element; // outside element
-    children; // array of {child: element, sortBy: string}
-    body; // what gets appended to
-    constructor(id, attachId) {
-      // id is the element's id
-      // attachId is where to attach before
-      this.element = dom("div", {
-        id: id,
-        //TODO: Better padding
-        style: {
-          "padding-top": "4em",
-          "padding-right": "1em",
-          "padding-left": "1em"
-        }
-      });
-      this.element.attachShadow({mode: "open"})
+    children;
+    body;
+    constructor(className) {
       this.body = dom("div", {
-        id: "body"
+        class: className
       })
-      // Needed for removing inherited styles
-      const html = dom("div", {
-        id: "html",
-        style: {
-          all: "initial"
-        }
-      }, [
-        this.body
-      ])
-      this.element.shadowRoot.appendChild(html);
       this.children = [];
-      // attach to dom
-      if(document.getElementById(attachId)) {
-        this.attach(document.getElementById(attachId));
-      } else { // or wait until it exists
-        const observer = new MutationObserver(_ => {
-          if (document.getElementById(attachId)) {
-            observer.disconnect();
-            this.attach(document.getElementById(attachId));
-          }
-        });
-        observer.observe(document.documentElement, {
-          childList: true,
-          subtree: true
-        });
-      }
     }
+    getElement() {
+      return this.body;
+    }
+
     // Insert the child into the shadow dom, sorted by sortBy
     append(child, sortBy) {
       const childPair = {
@@ -110,97 +76,125 @@
         }
       }
     }
-    attach(element) {
-      throw new SyntaxError("Method attach must be implemented");
-    }
   }
 
   class NavBuilder extends OrderedBuilder {
-    cardCategoryMap;
-    categoryMap;
-    cardMap;
-    constructor() {
-      //TODO: attach underneath menu bar
-      super("MyMSU Minus Nav Builder", "root")
-      this.cardCategoryMap = {}
-      this.categoryMap = {}
-      this.cardMap = {}
+    isResourceLoaded
+    viewBuilder
+    navIdMap;
+    constructor(viewBuilder) {
+      super("navBuilder");
+      this.viewBuilder = viewBuilder;
+      this.isResourceLoaded = false;
+      this.navIdMap = {};
     }
-    attach(element) {
-      element.parentElement.insertBefore(this.element, element);
+    loadResource(resourceUrl) {
+      return new Promise(resolve => {
+        fetch(resourceUrl)
+          .then(result => result.json())
+          .then(json => {
+            this.handleResource(json)
+            this.isResourceLoaded = true;
+            resolve();
+          })
+      })
     }
-    updateItem(item) { // Update nav item's selected status from url param
-      const params = new URLSearchParams(document.location.search);
-      const category = params.get("category");
-      if(category === item.slug.toLowerCase()) {
-        item.classList.add("selected")
-      } else {
-        item.classList.remove("selected")
+
+    handleResource(json) {
+      for(const category of json) {
+        const navElement = this.createNavElement(category, category.id)
+        const slugComponent = encodeURIComponent(category.slug.toLowerCase())
+
+        this.navIdMap[category.id] = {
+          category: category,
+          navElement: navElement,
+          slugComponent: slugComponent
+        }
       }
     }
-    createNavItem(label, slug) {
-      const value = encodeURIComponent(slug.toLowerCase())
-      const item = dom("a", {
+    createNavElement(category, id) {
+      const item = dom("span", {
         class: "nav-item",
-        text: label,
-        href: "?category=" + value
+        text: category.label,
       })
-      //TODO: hook into react? to directly change the state without reloads
-      item.target = "_top"
-      item.slug = slug;
-
-      this.updateItem(item);
+      const self = this
+      item.addEventListener("click", function(_){
+        self.viewBuilder.updateNav(id);
+        self.setNavSelection(id)
+      }, false)
       return item;
     }
-    update() {
-      for(const item of this.children) {
-        this.updateItem(item.child);
-      }
-    }
-
-    /*
-     * Alright, buckle up because this is really stupid.
-     * We receive the category data that consists of categories, and their associated card id's
-     * MyMSU then builds the nav only based on what cards the user is sent
-     * I want to load the nav and cards at the same time, so we implement a queue for categories
-     * and cards, and update them each time a category or card is added
-     */
-    queueItem(category) {
-      const item = this.createNavItem(category.label, category.slug);
-
-      item.cardIds = category.cards
-      //TODO: Use this when we're filtering the displayed cards? It already seems like a pain to delete
-      this.categoryMap[category.id] = {item: item, sortBy: category.label} // map for category id --> nav item
-      for(const cardId of category.cards) { // For each card in that category
-        this.cardCategoryMap[cardId] = category.id; // map card id --> category id
-        if(this.cardMap[cardId]) {                  // and if that card has already been loaded
-          this.addForCard(this.cardMap[cardId])     // get the nav item loaded using addForCard
-          return;
+    setNavSelection(id) {
+      for(const categoryId of Object.keys(this.navIdMap)) {
+        const navElement = this.navIdMap[categoryId].navElement
+        if(categoryId === id) {
+          navElement.classList.add("selected")
+        } else {
+          navElement.classList.remove("selected")
         }
       }
     }
-    addForCard(card) {
-      const categoryId = this.cardCategoryMap[card.id]
-      if(categoryId) {                                    // If we've processed a nav item that has this card
-        const navItem = this.categoryMap[categoryId];
-        if(navItem) {                                   // And if we haven't processed the associated nav item yet
-          delete this.categoryMap[categoryId];
-          this.append(navItem.item, navItem.sortBy);    // process it
+
+    showNavForCardIds(cardIds) {
+      for(const categoryId of Object.keys(this.navIdMap)) {
+        const navItem = this.navIdMap[categoryId];
+        for(const cardId of navItem.category.cards) {
+          if(cardIds.includes(cardId)) {
+            this.append(navItem.navElement, navItem.category.label)
+            break;
+          }
         }
-      } else {                                          // if we haven't seen this card from the category's cards
-        this.cardMap[card.id] = card;                   // save it and its id so we can check it when loading categories
+      }
+      const allItem = this.createNavElement({label: "All"}, "all")
+      const self = this
+      allItem.addEventListener("click", function(_){
+        self.setNavSelection("all")
+      }, false)
+      this.append(allItem, "a");
+      this.navIdMap["all"] = {
+        id: "all",
+        navElement: allItem,
+        cards: cardIds
       }
     }
   }
 
   class DisplayBuilder extends OrderedBuilder {
+    isResourceLoaded;
+
+    cardIdMap;
     constructor() {
-      super("MyMSU Minus Display Builder", "root");
+      super("displayBuilder");
+      this.isResourceLoaded = false;
+      this.cardIdMap = {};
     }
-    attach(element) {
-      element.parentElement.insertBefore(this.element, element);
+    loadResource(resourceUrl) {
+      return new Promise(resolve => {
+        fetch(resourceUrl)
+          .then(result => result.json())
+          .then(json => {
+            this.handleResource(json)
+            this.isResourceLoaded = true;
+            resolve();
+          })
+      })
     }
-    addItem(data, card) {
+    getCardIds() {
+      return Object.keys(this.cardIdMap);
+    }
+    handleResource(json) {
+      for(const card of json.cardsConfiguration) {
+        this.cardIdMap[card.id] = {card: card}
+        if(card.type === "WysiwygCard") {
+          fetch("https://experience.elluciancloud.com/api/embedded-html/" + card.id)
+            .then(result => result.json())
+            .then(htmlString => {
+              this.handleCardResource(htmlString, card);
+            })
+        }
+      }
+    }
+    createCardElement(htmlString, card) {
       const title = [
         dom("span", {
           class: "card-title",
@@ -219,55 +213,117 @@
           ]),
         )
       }
-      const item = dom("div", {class: "flattened-card"}, [
+      return dom("div", {class: "flattened-card"}, [
         dom("span", {class: "title-container"}, title),
-        dom("div", {class: "card-contents"}, dom.string(data, {
+        dom("div", {class: "card-contents"}, dom.string(htmlString, {
           imageSubstitute: card.title
         }))
       ])
-      this.append(item, card.title);
+    }
+    handleCardResource(htmlString, card) {
+      const cardElement = this.createCardElement(htmlString, card);
+      this.cardIdMap[card.id].cardElement = cardElement;
+      this.append(cardElement, card.title);
     }
   }
-  const navBuilder = new NavBuilder();
-  const displayBuilder = new DisplayBuilder();
+
+  class ViewBuilder {
+    navBuilder;
+    displayBuilder;
+    domElement;
+    body;
+    constructor() {
+      this.navBuilder = new NavBuilder(this);
+      this.displayBuilder = new DisplayBuilder();
+    }
+    getNavSelection() {
+      if(window.location.pathname === "/montana/discover") return {
+        type: "all",
+        id: false
+      }
+      const params = new URLSearchParams(window.location.search);
+      return {
+        type: params.get("category"),
+        id: true
+      }
+    }
+    updateNav(id) {
+
+    }
+    attach(element) {
+      element.parentElement.insertBefore(this.domElement, element);
+    }
+    build() {
+      this.domElement = dom("div", {
+        id: "MyMSUNavBuilder",
+        //TODO: Better padding
+        style: {
+          "padding-top": "4em",
+          "padding-right": "1em",
+          "padding-left": "1em"
+        }
+      });
+      this.domElement.attachShadow({mode: "open"})
+      this.body = dom("div", {
+        class: "body"
+      }, [
+        this.navBuilder.getElement(),
+        this.displayBuilder.getElement()
+      ]);
+      // Needed for removing inherited styles
+      const resetElement = dom("div", {
+        class: "reset",
+        style: {
+          all: "initial"
+        }
+      }, [
+        this.body
+      ])
+      this.domElement.shadowRoot.appendChild(resetElement);
+      this.loadResources();
+      if(document.getElementById("root")) {
+        this.attach(document.getElementById("root"));
+      } else { // or wait until it exists
+        const observer = new MutationObserver(_ => {
+          if (document.getElementById("root")) {
+            observer.disconnect();
+            this.attach(document.getElementById("root"));
+          }
+        });
+        observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true
+        });
+      }
+    }
+    loadResources() {
+      this.navBuilder.loadResource("https://experience.elluciancloud.com/api/categories")
+        .then(() => this.checkIsLoaded())
+      this.displayBuilder.loadResource("https://experience.elluciancloud.com/api/dashboard-load")
+        .then(() => this.checkIsLoaded())
+    }
+    checkIsLoaded() {
+      if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
+        this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
+        this.navBuilder.setNavSelection("all")
+
+      }
+    }
+
+    locationChange() {
+
+    }
+  }
+
+  const viewBuilder = new ViewBuilder();
+  viewBuilder.build();
+
   // Temporary solution for updating the fake nav bar when the real one changes
   const oldPushState = history.pushState;
   history.pushState = function(...args) {
     oldPushState.call(this, ...args)
-    navBuilder.update();
+    viewBuilder.locationChange();
   }
-
-  function handleCard(card) {
-    const resourceURL = "https://experience.elluciancloud.com/api/embedded-html/" + card.id
-    fetch(resourceURL)
-      .then(response => response.json())
-      .then(data => {
-        displayBuilder.addItem(data, card)
-      });
-  }
-  const dashboard = "https://experience.elluciancloud.com/api/dashboard-load"
-  fetch(dashboard)
-    .then((result) => result.json())
-    .then(data => {
-      for (const card of data.cardsConfiguration) {
-        navBuilder.addForCard(card)
-        switch (card.type) {
-          case "WysiwygCard":
-            handleCard(card);
-            break;
-          default:
-            console.log("Unsupported type: " + card.type);
-        }
-      }
-    });
-  const categories = "https://experience.elluciancloud.com/api/categories";
-  fetch(categories)
-    .then(result => result.json())
-    .then(data => {
-      for(const category of data) {
-        navBuilder.queueItem(category);
-      }
-    });
 
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {

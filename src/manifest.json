@@ -23,7 +23,7 @@
   "web_accessible_resources": [
     {
       "matches": ["<all_urls>"],
-      "resources": ["style.css", "cards.css", "nav.css", "injected.js"]
+      "resources": ["style.css", "experimental.css", "injected.js"]
     }
   ],
   "browser_specific_settings": {
