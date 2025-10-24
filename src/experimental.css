@@ -18,6 +18,14 @@
 .card-contents *:empty {
     display: none;
 }
+.flattened-card {
+    display: none;
+}
+.yellow-bar {
+    border-top: solid 5px #cccc00;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
 
 .navBuilder {
     border-bottom-color: #113263;

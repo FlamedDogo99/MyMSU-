@@ -1,5 +1,53 @@
+const invasive = false;
+
 (function() {
-  // basic dom builder
+  const originalFetch = window.fetch;
+  window.fetch = async (...args) => {
+    const [resource, config] = args;
+
+    function overrideJson(contains, callback) {
+      /* We cannot throw an error here. If any problem occurs, we need to pretend that everything is fine,
+       * and just return the original fetch result */
+      try {
+        const index = resource.indexOf(contains)
+        if (index !== -1) {
+          response.json = () =>
+            response
+              .clone()
+              .json()
+              .then((data) => callback(data, index));
+        }
+      } catch (_) {
+      }
+    }
+    const response = await originalFetch.call(this, ...args);
+    overrideJson("api/locked-cards", (data) => {
+      if (config.method === "GET" || !config.method) data.cards = []; // Remove list of locked cards
+      return data;
+    });
+    overrideJson("api/preferences", (data) => {
+      if (config.method === "GET" || !config.method) {
+        data.dashboard.cards = data.dashboard.cards.filter(card => {
+          return !card.isLocked;
+        }); // Remove locked cards from preferences
+      }
+      return data;
+    });
+    overrideJson("api/dashboard-load", (data) => {
+      if (config.method === "GET" || !config.method) {
+        data.announcements = data.announcements.filter((item) => {
+          return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
+        });
+        if(invasive) data.cardsConfiguration = data.cardsConfiguration.filter(card => {
+          return card.type !== "WysiwygCard"
+        });
+      }
+      return data;
+    });
+    return response;
+  };
+  if(!invasive) return;
+
   const dom = function(tagName, options, children) {
     const element = document.createElement(tagName);
     for(const style in options.style) {
@@ -39,7 +87,6 @@
     return Array.from(html.body.children);
   }
 
-  // creates a shadow dom with an ordered set of elements
   class OrderedBuilder {
     children;
     body;
@@ -52,25 +99,23 @@
     getElement() {
       return this.body;
     }
-
-    // Insert the child into the shadow dom, sorted by sortBy
     append(child, sortBy) {
       const childPair = {
         sortBy: sortBy,
         child: child
       }
-      if(this.children.length === 0) {                // If the list is empty, just push the item
+      if(this.children.length === 0) {
         this.children.push(childPair)
         this.body.appendChild(child);
       } else {
-        const index = this.children.findIndex(el => { //Get what item index alphabetically by sortBy
+        const index = this.children.findIndex(el => {
           return el.sortBy.localeCompare(sortBy) >= 0
         })
-        if(index === -1) {                            // if the index is at the end
-          this.children.push(childPair)               // push the item
+        if(index === -1) {
+          this.children.push(childPair)
           this.body.appendChild(child);
-        } else {                                        // otherwise
-          const beforeChild = this.children[index].child;  // insert the item at the index
+        } else {
+          const beforeChild = this.children[index].child;
           this.children.splice(index, 0, childPair)
           this.body.insertBefore(child, beforeChild)
         }
@@ -82,15 +127,19 @@
     isResourceLoaded
     viewBuilder
     navIdMap;
+    cardClassMap;
+    categoryRequests;
     constructor(viewBuilder) {
       super("navBuilder");
       this.viewBuilder = viewBuilder;
       this.isResourceLoaded = false;
       this.navIdMap = {};
+      this.cardClassMap = {}
+      this.categoryRequests = {};
     }
     loadResource(resourceUrl) {
       return new Promise(resolve => {
-        fetch(resourceUrl)
+        originalFetch(resourceUrl)
           .then(result => result.json())
           .then(json => {
             this.handleResource(json)
@@ -134,17 +183,41 @@
         }
       }
     }
+    getCategory(cardId) {
+      return new Promise(resolve => {
+        if(this.cardClassMap[cardId]){
+          resolve(this.cardClassMap[cardId])
+        } else {
+          this.categoryRequests[cardId] = categoryId => resolve(categoryId)
+        }
+      })
+    }
+    getCardIds(navId) {
+      return this.navIdMap[navId].cards
+    }
 
     showNavForCardIds(cardIds) {
       for(const categoryId of Object.keys(this.navIdMap)) {
         const navItem = this.navIdMap[categoryId];
+        let isItemAdded = false;
         for(const cardId of navItem.category.cards) {
-          if(cardIds.includes(cardId)) {
+          if(this.cardClassMap[cardId] === undefined) this.cardClassMap[cardId] = ["id-all"]
+          this.cardClassMap[cardId].push("id-" + categoryId)
+
+          if(cardIds.includes(cardId) && !isItemAdded) {
             this.append(navItem.navElement, navItem.category.label)
-            break;
+            isItemAdded = true;
           }
         }
       }
+      for(const cardId of Object.keys(this.categoryRequests)) {
+        const request = this.categoryRequests[cardId];
+        const categoryId = this.cardClassMap[cardId];
+        if(categoryId) {
+          request(categoryId)
+        }
+      }
+      if(Object.keys(this.categoryRequests).length !== 0) debugger;
       const allItem = this.createNavElement({label: "All"}, "all")
       const self = this
       allItem.addEventListener("click", function(_){
@@ -161,16 +234,18 @@
 
   class DisplayBuilder extends OrderedBuilder {
     isResourceLoaded;
+    viewBuilder;
 
     cardIdMap;
-    constructor() {
+    constructor(viewBuilder) {
       super("displayBuilder");
+      this.viewBuilder = viewBuilder;
       this.isResourceLoaded = false;
       this.cardIdMap = {};
     }
     loadResource(resourceUrl) {
       return new Promise(resolve => {
-        fetch(resourceUrl)
+        originalFetch(resourceUrl)
           .then(result => result.json())
           .then(json => {
             this.handleResource(json)
@@ -186,7 +261,7 @@
       for(const card of json.cardsConfiguration) {
         this.cardIdMap[card.id] = {card: card}
         if(card.type === "WysiwygCard") {
-          fetch("https://experience.elluciancloud.com/api/embedded-html/" + card.id)
+          originalFetch("https://experience.elluciancloud.com/api/embedded-html/" + card.id)
             .then(result => result.json())
             .then(htmlString => {
               this.handleCardResource(htmlString, card);
@@ -222,33 +297,21 @@
     }
     handleCardResource(htmlString, card) {
       const cardElement = this.createCardElement(htmlString, card);
+      this.viewBuilder.getCardCategory(card.id)
+        .then(categoryId => cardElement.classList.add(...categoryId))
       this.cardIdMap[card.id].cardElement = cardElement;
       this.append(cardElement, card.title);
     }
   }
 
-  class ViewBuilder {
+  class ViewManager {
     navBuilder;
     displayBuilder;
     domElement;
     body;
     constructor() {
       this.navBuilder = new NavBuilder(this);
-      this.displayBuilder = new DisplayBuilder();
-    }
-    getNavSelection() {
-      if(window.location.pathname === "/montana/discover") return {
-        type: "all",
-        id: false
-      }
-      const params = new URLSearchParams(window.location.search);
-      return {
-        type: params.get("category"),
-        id: true
-      }
-    }
-    updateNav(id) {
-
+      this.displayBuilder = new DisplayBuilder(this);
     }
     attach(element) {
       element.parentElement.insertBefore(this.domElement, element);
@@ -268,9 +331,9 @@
         class: "body"
       }, [
         this.navBuilder.getElement(),
+        dom("div", {class: "yellow-bar"}),
         this.displayBuilder.getElement()
       ]);
-      // Needed for removing inherited styles
       const resetElement = dom("div", {
         class: "reset",
         style: {
@@ -283,7 +346,7 @@
       this.loadResources();
       if(document.getElementById("root")) {
         this.attach(document.getElementById("root"));
-      } else { // or wait until it exists
+      } else {
         const observer = new MutationObserver(_ => {
           if (document.getElementById("root")) {
             observer.disconnect();
@@ -306,65 +369,20 @@
       if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
         this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
         this.navBuilder.setNavSelection("all")
-
+        this.updateNav("all")
       }
     }
-
-    locationChange() {
-
+    updateNav(id) {
+      const sheet = new CSSStyleSheet()
+      sheet.replaceSync(`.id-${id} {display: initial !important}`)
+      this.domElement.shadowRoot.adoptedStyleSheets = [sheet]
     }
+    getCardCategory(cardId) {
+      return this.navBuilder.getCategory(cardId)
+    }
+
   }
 
-  const viewBuilder = new ViewBuilder();
+  const viewBuilder = new ViewManager();
   viewBuilder.build();
-
-  // Temporary solution for updating the fake nav bar when the real one changes
-  const oldPushState = history.pushState;
-  history.pushState = function(...args) {
-    oldPushState.call(this, ...args)
-    viewBuilder.locationChange();
-  }
-
-  const originalFetch = window.fetch;
-  window.fetch = async (...args) => {
-    const [resource, config] = args;
-
-    function overrideJson(contains, callback) {
-      /* We cannot throw an error here. If any problem occurs, we need to pretend that everything is fine,
-       * and just return the original fetch result */
-      try {
-        const index = resource.indexOf(contains)
-        if (index !== -1) {
-          response.json = () =>
-            response
-              .clone()
-              .json()
-              .then((data) => callback(data, index));
-        }
-      } catch (_) {
-      }
-    }
-    const response = await originalFetch.call(this, ...args);
-    overrideJson("api/locked-cards", (data) => {
-      if (config.method === "GET" || !config.method) data.cards = []; // Remove list of locked cards
-      return data;
-    });
-    overrideJson("api/preferences", (data) => {
-      if (config.method === "GET" || !config.method) {
-        data.dashboard.cards = data.dashboard.cards.filter((item) => {
-          return !item.isLocked;
-        }); // Remove locked cards from preferences
-      }
-      return data;
-    });
-    overrideJson("api/dashboard-load", (data) => {
-      if (config.method === "GET" || !config.method) {
-        data.announcements = data.announcements.filter((item) => {
-          return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
-        });
-      }
-      return data;
-    });
-    return response;
-  };
 })()
