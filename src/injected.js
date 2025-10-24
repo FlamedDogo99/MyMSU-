@@ -1,5 +1,5 @@
 (function() {
-  // create elements
+  // basic dom builder
   const dom = function(tagName, options, children) {
     const element = document.createElement(tagName);
     for(const style in options.style) {
@@ -11,17 +11,15 @@
     options.href && (element.href = options.href);
     options.class && (element.className = options.class);
     options.text && (element.innerText = options.text);
-    if(options.onClick) element.addEventListener("click", _ => options.onClick, false);
     if(children && children.length !== 0) element.append(...children);
     return element;
   }
-  // create dom from string
-  //TODO: separate the filtering logic
   dom.string = function(text, options = {
     imageSubstitute: "Link"
   }) {
     const parser = new DOMParser();
     const html = parser.parseFromString(text, "text/html");
+    //TODO: separate the filtering logic
     const images = Array.from(html.getElementsByTagName("img"));
     for(let image of images) {
       if(image.closest("a")) {
@@ -40,16 +38,18 @@
     }
     return Array.from(html.body.children);
   }
+
   // creates a shadow dom with an ordered set of elements
   class OrderedBuilder {
-    element;
-    children;
-    body;
+    element; // outside element
+    children; // array of {child: element, sortBy: string}
+    body; // what gets appended to
     constructor(id, attachId) {
       // id is the element's id
       // attachId is where to attach before
       this.element = dom("div", {
         id: id,
+        //TODO: Better padding
         style: {
           "padding-top": "4em",
           "padding-right": "1em",
@@ -93,28 +93,25 @@
         sortBy: sortBy,
         child: child
       }
-      if(this.children.length === 0) {
+      if(this.children.length === 0) {                // If the list is empty, just push the item
         this.children.push(childPair)
         this.body.appendChild(child);
       } else {
-        const index = this.children.findIndex(el => {
+        const index = this.children.findIndex(el => { //Get what item index alphabetically by sortBy
           return el.sortBy.localeCompare(sortBy) >= 0
         })
-        if(index === -1) {
-          this.children.push(childPair)
+        if(index === -1) {                            // if the index is at the end
+          this.children.push(childPair)               // push the item
           this.body.appendChild(child);
-        } else {
-          const afterChild = this.children[index].child;
+        } else {                                        // otherwise
+          const beforeChild = this.children[index].child;  // insert the item at the index
           this.children.splice(index, 0, childPair)
-          this.body.insertBefore(child, afterChild)
+          this.body.insertBefore(child, beforeChild)
         }
       }
     }
     attach(element) {
       throw new SyntaxError("Method attach must be implemented");
-    }
-    addItem() {
-      throw new SyntaxError("Method addItem must be implemented");
     }
   }
 
@@ -123,6 +120,7 @@
     categoryMap;
     cardMap;
     constructor() {
+      //TODO: attach underneath menu bar
       super("MyMSU Minus Nav Builder", "root")
       this.cardCategoryMap = {}
       this.categoryMap = {}
@@ -131,14 +129,35 @@
     attach(element) {
       element.parentElement.insertBefore(this.element, element);
     }
+    updateItem(item) { // Update nav item's selected status from url param
+      const params = new URLSearchParams(document.location.search);
+      const category = params.get("category");
+      if(category === item.slug.toLowerCase()) {
+        item.classList.add("selected")
+      } else {
+        item.classList.remove("selected")
+      }
+    }
     createNavItem(label, slug) {
-      const item = dom("span", {
+      const value = encodeURIComponent(slug.toLowerCase())
+      const item = dom("a", {
         class: "nav-item",
-        text: label
+        text: label,
+        href: "?category=" + value
       })
+      //TODO: hook into react? to directly change the state without reloads
+      item.target = "_top"
       item.slug = slug;
+
+      this.updateItem(item);
       return item;
     }
+    update() {
+      for(const item of this.children) {
+        this.updateItem(item.child);
+      }
+    }
+
     /*
      * Alright, buckle up because this is really stupid.
      * We receive the category data that consists of categories, and their associated card id's
@@ -169,7 +188,7 @@
           this.append(navItem.item, navItem.sortBy);    // process it
         }
       } else {                                          // if we haven't seen this card from the category's cards
-        this.cardMap[card.id] = card;                   // save it and it's id so we can check it when loading categories
+        this.cardMap[card.id] = card;                   // save it and its id so we can check it when loading categories
       }
     }
   }
@@ -178,11 +197,9 @@
     constructor() {
       super("MyMSU Minus Display Builder", "root");
     }
-
     attach(element) {
       element.parentElement.insertBefore(this.element, element);
     }
-
     addItem(data, card) {
       const title = [
         dom("span", {
@@ -213,6 +230,12 @@
   }
   const navBuilder = new NavBuilder();
   const displayBuilder = new DisplayBuilder();
+  // Temporary solution for updating the fake nav bar when the real one changes
+  const oldPushState = history.pushState;
+  history.pushState = function(...args) {
+    oldPushState.call(this, ...args)
+    navBuilder.update();
+  }
 
   function handleCard(card) {
     const resourceURL = "https://experience.elluciancloud.com/api/embedded-html/" + card.id
@@ -222,7 +245,6 @@
         displayBuilder.addItem(data, card)
       });
   }
-
   const dashboard = "https://experience.elluciancloud.com/api/dashboard-load"
   fetch(dashboard)
     .then((result) => result.json())
@@ -287,14 +309,6 @@
       }
       return data;
     });
-    // overrideJson("api/categories", (data) => {
-    //   if (config.method === "GET" || !config.method) {
-    //     const admin = data.find((item) => item.slug === "Administrative Tools");
-    //     admin.cards.push("0dce8c66-00ed-495f-bc2b-454b6c0106f5")
-    //   }
-    //   return data;
-    // });
-
     return response;
   };
 })()

@@ -1,4 +1,3 @@
-
 function injectIntoMain() {
   const injectScript = document.createElement("script");
   injectScript.src = chrome.runtime.getURL("injected.js");
