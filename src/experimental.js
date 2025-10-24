@@ -1,4 +1,3 @@
-if(true) return;
 
 function injectIntoMain() {
   const injectScript = document.createElement("script");
@@ -28,7 +27,14 @@ function waitForId(selector) {
 waitForId("MyMSU Minus Display Builder")
   .then((element) => {
     const link = document.createElement("link");
-    link.href = chrome.runtime.getURL("experimental.css");
+    link.href = chrome.runtime.getURL("cards.css");
+    link.rel = "stylesheet";
+    element.shadowRoot.appendChild(link);
+  });
+waitForId("MyMSU Minus Nav Builder")
+  .then((element) => {
+    const link = document.createElement("link");
+    link.href = chrome.runtime.getURL("nav.css");
     link.rel = "stylesheet";
     element.shadowRoot.appendChild(link);
   });
