@@ -4,13 +4,17 @@
 
 .card-title {
     display: inline;
+    padding: 0.2em;
 }
 .title-container {
-    font-size: 1em;
-    border-bottom-width: 2px;
-    border-bottom-color: #222222;
-    border-bottom-style: solid;
+    font-size: 1.1em;
 }
-.card-contents {
+.card-contents > * {
     font-size: 0.8em;
+    margin-left: 2.5em;
+    display: list-item;
+    list-style-position: outside;
+}
+.card-contents *:empty {
+    display: none;
 }

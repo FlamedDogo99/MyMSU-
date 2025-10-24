@@ -1,4 +1,5 @@
 (function() {
+
   const dom = function(tagName, options, children) {
     const element = document.createElement(tagName);
     for(const style in options.style) {
@@ -14,7 +15,9 @@
     if(children && children.length !== 0) element.append(...children);
     return element;
   }
-  dom.string = function(text) {
+  dom.string = function(text, options = {
+    imageSubstitute: "Link"
+  }) {
     const parser = new DOMParser();
     const html = parser.parseFromString(text, "text/html");
     const images = Array.from(html.getElementsByTagName("img"));
@@ -23,12 +26,17 @@
         const alt = image.alt;
         image.replaceWith(dom("p", {
           class: "replace-image",
-          text: alt && alt !== "" ? alt : "Link"
+          text: alt && alt !== "" ? alt : options.imageSubstitute
         }))
       } else {
         image.remove();
       }
     }
+    const brs = Array.from(html.getElementsByTagName("br"));
+    for(let br of brs) {
+      br.remove();
+    }
+
     return Array.from(html.body.children);
   }
 
@@ -58,7 +66,7 @@
       if(document.getElementById("root")) {
         this.attach(document.getElementById("root"));
       } else {
-        const observer = new MutationObserver(mutations => {
+        const observer = new MutationObserver(_ => {
           if (document.getElementById("root")) {
             observer.disconnect();
             this.attach(document.getElementById("root"));
@@ -71,7 +79,6 @@
       }
     }
     append(child, sortBy) {
-      debugger;
       const childPair = {
         sortBy: sortBy,
         child: child
@@ -109,14 +116,19 @@
         title.push(
           dom("a", {
             class: "title-link",
-            text: card.externalLinkLabel && card.externalLinkLabel !== "" ? card.externalLinkLabel : "Link",
             href: card.externalLinkUrl
-          }),
+          }, [
+            dom("button", {
+              text: card.externalLinkLabel && card.externalLinkLabel !== "" ? card.externalLinkLabel : "Link",
+            })
+          ]),
         )
       }
       const item = dom("div", {class: "flattened-card"}, [
         dom("span", {class: "title-container"}, title),
-        dom("div", {class: "card-contents"}, dom.string(data))
+        dom("div", {class: "card-contents"}, dom.string(data, {
+          imageSubstitute: card.title
+        }))
       ])
       this.append(item, card.title);
     }
