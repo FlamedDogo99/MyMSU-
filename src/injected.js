@@ -1,4 +1,4 @@
-const invasive = false;
+const invasive = true;
 
 (function() {
   const originalFetch = window.fetch;
@@ -47,6 +47,39 @@ const invasive = false;
     return response;
   };
   if(!invasive) return;
+
+  function getReactHistory() {
+    function findHistory(internal) {
+      let current = internal;
+      while(current) {
+        let history =
+          current?.memoizedState?.element?.props?.history
+          || current?.pendingProps?.history
+          || current?.stateNode?.history;
+        if (history) return history
+        current = current.child;
+      }
+    }
+    return new Promise(resolve => {
+      const internal = document.getElementById("root")
+        ?._reactRootContainer?._internalRoot?.current
+      if (internal) {
+        return resolve(findHistory(internal));
+      }
+      const observer = new MutationObserver(_ => {
+        const internal = document.getElementById("root")
+          ?._reactRootContainer?._internalRoot?.current
+        if (internal) {
+          observer.disconnect();
+          resolve(findHistory(internal));
+        }
+      });
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+      });
+    });
+  }
 
   const dom = function(tagName, options, children) {
     const element = document.createElement(tagName);
@@ -151,9 +184,8 @@ const invasive = false;
 
     handleResource(json) {
       for(const category of json) {
-        const navElement = this.createNavElement(category, category.id)
-        const slugComponent = encodeURIComponent(category.slug.toLowerCase())
-
+        const slugComponent = "?category=" + encodeURIComponent(category.slug.toLowerCase())
+        const navElement = this.createNavElement(category, category.id, slugComponent)
         this.navIdMap[category.id] = {
           category: category,
           navElement: navElement,
@@ -161,14 +193,14 @@ const invasive = false;
         }
       }
     }
-    createNavElement(category, id) {
+    createNavElement(category, id, slugComponent) {
       const item = dom("span", {
         class: "nav-item",
         text: category.label,
       })
       const self = this
       item.addEventListener("click", function(_){
-        self.viewBuilder.updateNav(id);
+        self.viewBuilder.updateNav(id, slugComponent);
         self.setNavSelection(id)
       }, false)
       return item;
@@ -309,12 +341,17 @@ const invasive = false;
     displayBuilder;
     domElement;
     body;
+    History;
     constructor() {
       this.navBuilder = new NavBuilder(this);
       this.displayBuilder = new DisplayBuilder(this);
+      getReactHistory()
+        .then(history => {
+          this.History = history;
+        })
     }
-    attach(element) {
-      element.parentElement.insertBefore(this.domElement, element);
+    attach(root) {
+      root.parentElement.insertBefore(this.domElement, root);
     }
     build() {
       this.domElement = dom("div", {
@@ -369,13 +406,20 @@ const invasive = false;
       if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
         this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
         this.navBuilder.setNavSelection("all")
-        this.updateNav("all")
+        this.updateNav("all", "")
       }
     }
-    updateNav(id) {
+    updateNav(id, params) {
       const sheet = new CSSStyleSheet()
       sheet.replaceSync(`.id-${id} {display: initial !important}`)
       this.domElement.shadowRoot.adoptedStyleSheets = [sheet]
+      if(id === "all") {
+        this.History.push("")
+      } else {
+        //FIXME: pushing history with url param doesn't update nav
+        debugger;
+        this.History.push(params)
+      }
     }
     getCardCategory(cardId) {
       return this.navBuilder.getCategory(cardId)
