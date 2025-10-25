@@ -46,32 +46,26 @@ const invasive = true;
     });
     return response;
   };
-  if(!invasive) return;
 
   function getReactHistory() {
     function findHistory(internal) {
       let current = internal;
       while(current) {
-        let history =
-          current?.memoizedState?.element?.props?.history
-          || current?.pendingProps?.history
-          || current?.stateNode?.history;
+        let history = current?.stateNode?.history;
         if (history) return history
         current = current.child;
       }
     }
     return new Promise(resolve => {
-      const internal = document.getElementById("root")
-        ?._reactRootContainer?._internalRoot?.current
+      const internal = document.getElementById("content")
       if (internal) {
-        return resolve(findHistory(internal));
+        return resolve(findHistory(document.getElementById("root")._reactRootContainer._internalRoot.current));
       }
       const observer = new MutationObserver(_ => {
-        const internal = document.getElementById("root")
-          ?._reactRootContainer?._internalRoot?.current
+        const internal = document.getElementById("content")
         if (internal) {
           observer.disconnect();
-          resolve(findHistory(internal));
+          resolve(findHistory(document.getElementById("root")._reactRootContainer._internalRoot.current));
         }
       });
       observer.observe(document.documentElement, {
@@ -80,6 +74,28 @@ const invasive = true;
       });
     });
   }
+
+  function waitForElementId(id) {
+    return new Promise(resolve => {
+      if(document.getElementById(id)) {
+        resolve(document.getElementById(id));
+      } else {
+        const observer = new MutationObserver(_ => {
+          if (document.getElementById(id)) {
+            observer.disconnect();
+            resolve(document.getElementById(id));
+          }
+        });
+        observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true
+        });
+      }
+    });
+  }
+
+  if(!invasive) return;
+
 
   const dom = function(tagName, options, children) {
     const element = document.createElement(tagName);
@@ -184,7 +200,7 @@ const invasive = true;
 
     handleResource(json) {
       for(const category of json) {
-        const slugComponent = "?category=" + encodeURIComponent(category.slug.toLowerCase())
+        const slugComponent = encodeURIComponent(category.slug.toLowerCase())
         const navElement = this.createNavElement(category, category.id, slugComponent)
         this.navIdMap[category.id] = {
           category: category,
@@ -200,7 +216,12 @@ const invasive = true;
       })
       const self = this
       item.addEventListener("click", function(_){
-        self.viewBuilder.updateNav(id, slugComponent);
+        self.viewBuilder.updateNav(id, {
+          pathname: "/",
+          search: "category=" + slugComponent,
+          hash: "",
+          state: null
+        });
         self.setNavSelection(id)
       }, false)
       return item;
@@ -341,21 +362,22 @@ const invasive = true;
     displayBuilder;
     domElement;
     body;
-    History;
+    history;
+    historyState;
     constructor() {
       this.navBuilder = new NavBuilder(this);
       this.displayBuilder = new DisplayBuilder(this);
       getReactHistory()
         .then(history => {
-          this.History = history;
+          this.history = history;
+          if(this.historyState) {
+            this.pushHistory(this.historyState)
+          }
         })
-    }
-    attach(root) {
-      root.parentElement.insertBefore(this.domElement, root);
     }
     build() {
       this.domElement = dom("div", {
-        id: "MyMSUNavBuilder",
+        id: "MyMSUViewManager",
         //TODO: Better padding
         style: {
           "padding-top": "4em",
@@ -381,19 +403,58 @@ const invasive = true;
       ])
       this.domElement.shadowRoot.appendChild(resetElement);
       this.loadResources();
-      if(document.getElementById("root")) {
-        this.attach(document.getElementById("root"));
+      const oldNavSheet = new CSSStyleSheet()
+      oldNavSheet.replaceSync("#dashboard_tabs_container{display:none !important;}")
+      document.adoptedStyleSheets.push(oldNavSheet);
+
+      document.documentElement.appendChild(this.domElement);
+      waitForElementId("maincontent")
+        .then(element => {
+          this.attach(element)
+        });
+      // const self = this
+      // waitForElementId("root")
+      //   .then(element => {
+      //     const observer = new MutationObserver(function(mutations) {
+      //       mutations.forEach(function(mutation) {
+      //         for(const removed of mutation.removedNodes) {
+      //           if(removed.id === 'MyMSUViewManager') {
+      //             debugger;
+      //             waitForElementId("maincontent")
+      //               .then(element => {
+      //                 self.attach(element)
+      //               });
+      //             return;
+      //           }
+      //         }
+      //       });
+      //     });
+      //     observer.observe(element, { subtree: false, childList: true })
+      //   })
+
+    }
+    attach(element) {
+      document.getElementById("dashboard_tabs_container")
+      element.parentElement.insertBefore(this.domElement, element);
+    }
+    pushHistory(locationData) {
+      if(this.history) {
+        this.history.push(locationData)
       } else {
-        const observer = new MutationObserver(_ => {
-          if (document.getElementById("root")) {
-            observer.disconnect();
-            this.attach(document.getElementById("root"));
-          }
-        });
-        observer.observe(document.documentElement, {
-          childList: true,
-          subtree: true
-        });
+        this.historyState = locationData
+      }
+    }
+    getNavState() {
+      const pathName = window.location.pathname;
+      const filter = "/montana"
+      const filterIndex = pathName.indexOf(filter);
+      if(filterIndex !== -1) {
+        const path = pathName.slice(filter.length);
+        const params = new URLSearchParams(window.location.search)
+        const category = params.get("category")
+        return path === "/discover" ? "all" : category
+      } else {
+        return "all"
       }
     }
     loadResources() {
@@ -406,7 +467,10 @@ const invasive = true;
       if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
         this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
         this.navBuilder.setNavSelection("all")
-        this.updateNav("all", "")
+        debugger;
+        this.updateNav("all",{
+          pathname: "/discover"
+        })
       }
     }
     updateNav(id, params) {
@@ -414,11 +478,11 @@ const invasive = true;
       sheet.replaceSync(`.id-${id} {display: initial !important}`)
       this.domElement.shadowRoot.adoptedStyleSheets = [sheet]
       if(id === "all") {
-        this.History.push("")
+        this.pushHistory({
+          pathname: "/discover"
+        })
       } else {
-        //FIXME: pushing history with url param doesn't update nav
-        debugger;
-        this.History.push(params)
+        this.pushHistory(params)
       }
     }
     getCardCategory(cardId) {

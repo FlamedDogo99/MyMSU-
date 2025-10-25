@@ -23,7 +23,7 @@ function waitForId(selector) {
   });
 }
 
-waitForId("MyMSUNavBuilder")
+waitForId("MyMSUViewManager")
   .then((element) => {
     const link = document.createElement("link");
     link.href = chrome.runtime.getURL("experimental.css");
