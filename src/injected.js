@@ -93,6 +93,15 @@ const invasive = true;
       }
     });
   }
+  class ViewElement extends HTMLElement {
+    constructor() {
+      super();
+    }
+    disconnectedCallback() {
+      this.dispatchEvent(new Event("disconnected"))
+    }
+  }
+  customElements.define("view-element", ViewElement);
 
   if(!invasive) return;
 
@@ -376,7 +385,7 @@ const invasive = true;
         })
     }
     build() {
-      this.domElement = dom("div", {
+      this.domElement = dom("view-element", {
         id: "MyMSUViewManager",
         //TODO: Better padding
         style: {
@@ -385,6 +394,12 @@ const invasive = true;
           "padding-left": "1em"
         }
       });
+      this.domElement.addEventListener("disconnected", event => {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+        if(!this.domElement.isConnected) this.attach();
+      })
+
       this.domElement.attachShadow({mode: "open"})
       this.body = dom("div", {
         class: "body"
@@ -407,35 +422,16 @@ const invasive = true;
       oldNavSheet.replaceSync("#dashboard_tabs_container{display:none !important;}")
       document.adoptedStyleSheets.push(oldNavSheet);
 
+      this.attach();
+
+    }
+    attach() {
       document.documentElement.appendChild(this.domElement);
       waitForElementId("maincontent")
         .then(element => {
-          this.attach(element)
+          document.getElementById("dashboard_tabs_container")
+          element.parentElement.insertBefore(this.domElement, element);
         });
-      // const self = this
-      // waitForElementId("root")
-      //   .then(element => {
-      //     const observer = new MutationObserver(function(mutations) {
-      //       mutations.forEach(function(mutation) {
-      //         for(const removed of mutation.removedNodes) {
-      //           if(removed.id === 'MyMSUViewManager') {
-      //             debugger;
-      //             waitForElementId("maincontent")
-      //               .then(element => {
-      //                 self.attach(element)
-      //               });
-      //             return;
-      //           }
-      //         }
-      //       });
-      //     });
-      //     observer.observe(element, { subtree: false, childList: true })
-      //   })
-
-    }
-    attach(element) {
-      document.getElementById("dashboard_tabs_container")
-      element.parentElement.insertBefore(this.domElement, element);
     }
     pushHistory(locationData) {
       if(this.history) {
@@ -445,6 +441,7 @@ const invasive = true;
       }
     }
     getNavState() {
+      debugger;
       const pathName = window.location.pathname;
       const filter = "/montana"
       const filterIndex = pathName.indexOf(filter);
@@ -466,10 +463,15 @@ const invasive = true;
     checkIsLoaded() {
       if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
         this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
-        this.navBuilder.setNavSelection("all")
-        debugger;
-        this.updateNav("all",{
-          pathname: "/discover"
+        const navState = this.getNavState()
+        //FIXME: setNavSelection used category id
+        this.navBuilder.setNavSelection("")
+        //TODO: rework the categories to save their push history object instead of checking it individually for
+        // each item
+        //TODO: add dashboard tab
+        this.updateNav(navState,{
+          pathname: "",
+          search: "category=" + navState
         })
       }
     }
