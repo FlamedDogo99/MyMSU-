@@ -1,6 +1,6 @@
 (function() {
 
-  const invasive = false;
+  const invasive = true;
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {
     const [resource, config] = args;
@@ -39,7 +39,7 @@
           return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
         });
         if(invasive) data.cardsConfiguration = data.cardsConfiguration.filter(card => {
-          return card.type !== "WysiwygCard"
+          return card.type !== "WysiwygCard" && card.type !== "all-accounts|Ellucian|Foundation|Quick%20Links"
         });
       }
       return data;
@@ -190,6 +190,38 @@
     }
   }
 
+  class UserDataManager {
+    userData;
+    constructor() {
+      this.hookNativeObject();
+    }
+    hookNativeObject() {
+      const self = this
+      Object.defineProperties(window, {
+        ___PRELOADED_STATE__: {
+          value: '',
+          writable: true
+        },
+        __PRELOADED_STATE__: {
+          get: function() {
+            return this.___PRELOADED_STATE__;
+          },
+          set: function(val) {
+            this.___PRELOADED_STATE__ = val;
+            self.handleRawData(this.___PRELOADED_STATE__);
+          },
+          configurable: true
+        }
+      });
+    }
+    handleRawData(data) {
+      this.userData = JSON.parse(window.atob(data))
+    }
+    getUserData() {
+      return this.userData
+    }
+  }
+
   class NavManager extends OrderedDomView {
     isResourceLoaded // if fetched resources have returned
     viewManager
@@ -212,6 +244,8 @@
       getReactState()
         .then(reactState => {
           this.reactState = reactState;
+          window.REACTSTATE = reactState;
+
           // If we've already changed our nav state, update the react components
           if(this.cachedNavigation) {
             this.pushHistory(this.cachedNavigation)
@@ -394,12 +428,23 @@
           originalFetch("https://experience.elluciancloud.com/api/embedded-html/" + card.id)
             .then(result => result.json())
             .then(htmlString => {
-              this.handleCardResource(htmlString, card);
+              this.handleCard(dom.string(htmlString, {
+                imageSubstitute: card.title
+              }), card);
             })
+        } else if(card.type === "all-accounts|Ellucian|Foundation|Quick%20Links") {
+          const linkList = card.configurationData.card.customConfiguration.client.linkList
+          const links = linkList.map(link => {
+            return dom("a", {href: link.url}, [
+              dom("p", {text: link.name})
+            ])
+          })
+          this.handleCard(links, card);
+
         }
       }
     }
-    createCardElement(htmlString, card) {
+    createCardElement(contents, card) {
       const title = [
         dom("span", {
           class: "card-title",
@@ -420,13 +465,11 @@
       }
       return dom("div", {class: "flattened-card"}, [
         dom("span", {class: "title-container"}, title),
-        dom("div", {class: "card-contents"}, dom.string(htmlString, {
-          imageSubstitute: card.title
-        }))
+        dom("div", {class: "card-contents"}, contents)
       ])
     }
-    handleCardResource(htmlString, card) {
-      const cardElement = this.createCardElement(htmlString, card);
+    handleCard(contents, card) {
+      const cardElement = this.createCardElement(contents, card);
       this.viewManager.getCardCategory(card.id)
         .then(categoryId => cardElement.classList.add(...categoryId)) // request the category id
       this.cardIdMap[card.id].cardElement = cardElement;
@@ -438,12 +481,13 @@
   class ViewManager {
     navManager;
     cardManager;
+    userDataManager;
     domElement;
     body;
     constructor() {
       this.navManager = new NavManager(this);
       this.cardManager = new CardManager(this);
-
+      this.userDataManager = new UserDataManager();
     }
     build() {
       /*
