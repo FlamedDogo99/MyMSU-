@@ -47,25 +47,22 @@ const invasive = true;
     return response;
   };
 
-  function getReactHistory() {
-    function findHistory(internal) {
-      let current = internal;
-      while(current) {
-        let history = current?.stateNode?.history;
-        if (history) return history
-        current = current.child;
-      }
+  function getReactState() {
+    function getState(element) {
+      if(!element) return;
+      const reactKey  = Object.keys(element).find(key => key.startsWith("__reactProps"));
+      if(reactKey) return element[reactKey]?.children?._owner?.stateNode;
     }
     return new Promise(resolve => {
-      const internal = document.getElementById("content")
+      const internal = getState(document.getElementById("spaceDetailOuterDiv"))
       if (internal) {
-        return resolve(findHistory(document.getElementById("root")._reactRootContainer._internalRoot.current));
+        return resolve(internal);
       }
       const observer = new MutationObserver(_ => {
-        const internal = document.getElementById("content")
+        const internal = getState(document.getElementById("spaceDetailOuterDiv"));
         if (internal) {
           observer.disconnect();
-          resolve(findHistory(document.getElementById("root")._reactRootContainer._internalRoot.current));
+          resolve(internal);
         }
       });
       observer.observe(document.documentElement, {
@@ -187,6 +184,11 @@ const invasive = true;
     navIdMap;
     cardClassMap;
     categoryRequests;
+
+    reactState;
+    cachedNavigation;
+
+
     constructor(viewBuilder) {
       super("navBuilder");
       this.viewBuilder = viewBuilder;
@@ -194,6 +196,37 @@ const invasive = true;
       this.navIdMap = {};
       this.cardClassMap = {}
       this.categoryRequests = {};
+
+      getReactState()
+        .then(reactState => {
+          window.TEST = reactState;
+          this.reactState = reactState;
+          if(this.cachedNavigation) {
+            this.pushHistory(this.cachedNavigation)
+          }
+        })
+      const oldPush = history.pushState;
+      const self = this
+      history.pushState = function(...args) {
+        const result = oldPush.call(this, ...args);
+        self.historyChanged();
+        return result;
+      }
+    }
+    historyChanged() {
+      const categoryItem = this.getCategoryBySlug(viewBuilder.getCurrentSlug())
+      debugger;
+
+      if(categoryItem && categoryItem.navigation !== this.cachedNavigation) {
+        this.setNavSelection(categoryItem.id)
+        this.viewBuilder.updateNav(categoryItem.id, categoryItem.navigation, false)
+      }
+    }
+    pushHistory(navigation) {
+      this.cachedNavigation = navigation
+      if(this.reactState) {
+        this.reactState.props.history.push(navigation)
+      }
     }
     loadResource(resourceUrl) {
       return new Promise(resolve => {
@@ -209,28 +242,30 @@ const invasive = true;
 
     handleResource(json) {
       for(const category of json) {
-        const slugComponent = encodeURIComponent(category.slug.toLowerCase())
-        const navElement = this.createNavElement(category, category.id, slugComponent)
+        const slug = encodeURIComponent(category.slug.toLowerCase())
         this.navIdMap[category.id] = {
-          category: category,
-          navElement: navElement,
-          slugComponent: slugComponent
+          cards: category.cards,
+          slug: slug,
+          label: category.label,
+          id: category.id,
+          navigation: {
+            pathname: "/",
+            search: "category=" + slug
+          }
         }
+        this.navIdMap[category.id].navElement = this.createNavElement(category.id, category.label);
+
       }
     }
-    createNavElement(category, id, slugComponent) {
+    createNavElement(id, label) {
       const item = dom("span", {
         class: "nav-item",
-        text: category.label,
+        text: label,
       })
       const self = this
+      const navigation = this.navIdMap[id].navigation
       item.addEventListener("click", function(_){
-        self.viewBuilder.updateNav(id, {
-          pathname: "/",
-          search: "category=" + slugComponent,
-          hash: "",
-          state: null
-        });
+        self.viewBuilder.updateNav(id, navigation, true);
         self.setNavSelection(id)
       }, false)
       return item;
@@ -254,6 +289,14 @@ const invasive = true;
         }
       })
     }
+    getCategoryBySlug(slug) {
+      for(const navId of Object.keys(this.navIdMap)) {
+        const navItem = this.navIdMap[navId]
+        if(navItem.slug === slug) {
+          return navItem
+        }
+      }
+    }
     getCardIds(navId) {
       return this.navIdMap[navId].cards
     }
@@ -262,12 +305,12 @@ const invasive = true;
       for(const categoryId of Object.keys(this.navIdMap)) {
         const navItem = this.navIdMap[categoryId];
         let isItemAdded = false;
-        for(const cardId of navItem.category.cards) {
+        for(const cardId of navItem.cards) {
           if(this.cardClassMap[cardId] === undefined) this.cardClassMap[cardId] = ["id-all"]
           this.cardClassMap[cardId].push("id-" + categoryId)
 
           if(cardIds.includes(cardId) && !isItemAdded) {
-            this.append(navItem.navElement, navItem.category.label)
+            this.append(navItem.navElement, navItem.label)
             isItemAdded = true;
           }
         }
@@ -280,17 +323,26 @@ const invasive = true;
         }
       }
       if(Object.keys(this.categoryRequests).length !== 0) debugger;
-      const allItem = this.createNavElement({label: "All"}, "all")
-      const self = this
-      allItem.addEventListener("click", function(_){
-        self.setNavSelection("all")
-      }, false)
-      this.append(allItem, "a");
-      this.navIdMap["all"] = {
-        id: "all",
-        navElement: allItem,
-        cards: cardIds
+      this.createFakeNavItem("all", "all", "All", cardIds, {
+        pathname: "/discover",
+        search: ""
+      }, "a");
+      this.createFakeNavItem("dashboard", "dashboard", "Dashboard", [], {
+        pathname: "/",
+        search: ""
+      }, "Dashboard");
+
+    }
+    createFakeNavItem(id, slug, label, cardIds, navigation, sortBy) {
+      this.navIdMap[id] = {
+        id: id,
+        slug: slug,
+        cards: cardIds,
+        navigation: navigation
       }
+      const item = this.createNavElement(id, label)
+      this.navIdMap[id].navElement = item;
+      this.append(item, sortBy);
     }
   }
 
@@ -371,18 +423,10 @@ const invasive = true;
     displayBuilder;
     domElement;
     body;
-    history;
-    historyState;
     constructor() {
       this.navBuilder = new NavBuilder(this);
       this.displayBuilder = new DisplayBuilder(this);
-      getReactHistory()
-        .then(history => {
-          this.history = history;
-          if(this.historyState) {
-            this.pushHistory(this.historyState)
-          }
-        })
+
     }
     build() {
       this.domElement = dom("view-element", {
@@ -433,15 +477,7 @@ const invasive = true;
           element.parentElement.insertBefore(this.domElement, element);
         });
     }
-    pushHistory(locationData) {
-      if(this.history) {
-        this.history.push(locationData)
-      } else {
-        this.historyState = locationData
-      }
-    }
-    getNavState() {
-      debugger;
+    getCurrentSlug() {
       const pathName = window.location.pathname;
       const filter = "/montana"
       const filterIndex = pathName.indexOf(filter);
@@ -449,9 +485,9 @@ const invasive = true;
         const path = pathName.slice(filter.length);
         const params = new URLSearchParams(window.location.search)
         const category = params.get("category")
-        return path === "/discover" ? "all" : category
+        return path === "/discover" ? "all" : (category ? category : "dashboard")
       } else {
-        return "all"
+        return false;
       }
     }
     loadResources() {
@@ -463,29 +499,20 @@ const invasive = true;
     checkIsLoaded() {
       if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
         this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
-        const navState = this.getNavState()
-        //FIXME: setNavSelection used category id
-        this.navBuilder.setNavSelection("")
-        //TODO: rework the categories to save their push history object instead of checking it individually for
-        // each item
+        const currentSlug = this.getCurrentSlug()
+        const categoryItem = this.navBuilder.getCategoryBySlug(currentSlug)
+        if(categoryItem) {
+          this.navBuilder.setNavSelection(categoryItem.id)
+          this.updateNav(categoryItem.id, categoryItem.navigation, false)
+        }
         //TODO: add dashboard tab
-        this.updateNav(navState,{
-          pathname: "",
-          search: "category=" + navState
-        })
       }
     }
-    updateNav(id, params) {
+    updateNav(id, navigation, shouldPush) {
       const sheet = new CSSStyleSheet()
       sheet.replaceSync(`.id-${id} {display: initial !important}`)
       this.domElement.shadowRoot.adoptedStyleSheets = [sheet]
-      if(id === "all") {
-        this.pushHistory({
-          pathname: "/discover"
-        })
-      } else {
-        this.pushHistory(params)
-      }
+      shouldPush && this.navBuilder.pushHistory(navigation);
     }
     getCardCategory(cardId) {
       return this.navBuilder.getCategory(cardId)
