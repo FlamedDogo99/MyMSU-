@@ -1,6 +1,6 @@
-const invasive = true;
-
 (function() {
+
+  const invasive = false;
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {
     const [resource, config] = args;
@@ -46,7 +46,10 @@ const invasive = true;
     });
     return response;
   };
-
+  if(!invasive) return
+  /*
+   * Get state used by react props
+   */
   function getReactState() {
     function getState(element) {
       if(!element) return;
@@ -71,7 +74,9 @@ const invasive = true;
       });
     });
   }
-
+  /*
+   * Helper function, returns promise for element by id
+   */
   function waitForElementId(id) {
     return new Promise(resolve => {
       if(document.getElementById(id)) {
@@ -90,6 +95,11 @@ const invasive = true;
       }
     });
   }
+  /*
+   * React will remove the ViewManager element when it changes state.
+   * This allows us to detect removal and reinsert the ViewManager element
+   * back into the dom
+   */
   class ViewElement extends HTMLElement {
     constructor() {
       super();
@@ -100,9 +110,9 @@ const invasive = true;
   }
   customElements.define("view-element", ViewElement);
 
-  if(!invasive) return;
-
-
+  /*
+   * Basic dom builder
+   */
   const dom = function(tagName, options, children) {
     const element = document.createElement(tagName);
     for(const style in options.style) {
@@ -141,8 +151,10 @@ const invasive = true;
     }
     return Array.from(html.body.children);
   }
-
-  class OrderedBuilder {
+  /*
+   * View builder that inserts children in alphabetical order into the dom
+   */
+  class OrderedDomView {
     children;
     body;
     constructor(className) {
@@ -178,20 +190,20 @@ const invasive = true;
     }
   }
 
-  class NavBuilder extends OrderedBuilder {
-    isResourceLoaded
-    viewBuilder
-    navIdMap;
-    cardClassMap;
-    categoryRequests;
+  class NavManager extends OrderedDomView {
+    isResourceLoaded // if fetched resources have returned
+    viewManager
+    navIdMap; // categoryId -> navItem
+    cardClassMap; // cardId -> navId class
+    categoryRequests; // array of requested categories for cardIds
 
-    reactState;
-    cachedNavigation;
+    reactState; // react state object from dom
+    cachedNavigation; // Last state set from navigating using the navManager
 
 
-    constructor(viewBuilder) {
-      super("navBuilder");
-      this.viewBuilder = viewBuilder;
+    constructor(viewManager) {
+      super("navManager");
+      this.viewManager = viewManager;
       this.isResourceLoaded = false;
       this.navIdMap = {};
       this.cardClassMap = {}
@@ -199,29 +211,29 @@ const invasive = true;
 
       getReactState()
         .then(reactState => {
-          window.TEST = reactState;
           this.reactState = reactState;
+          // If we've already changed our nav state, update the react components
           if(this.cachedNavigation) {
             this.pushHistory(this.cachedNavigation)
           }
         })
-      const oldPush = history.pushState;
       const self = this
-      history.pushState = function(...args) {
-        const result = oldPush.call(this, ...args);
-        self.historyChanged();
-        return result;
-      }
+      window.addEventListener("popstate", (event) => {
+        setTimeout(() => {
+          self.historyChanged();
+        },1)
+      })
     }
     historyChanged() {
-      const categoryItem = this.getCategoryBySlug(viewBuilder.getCurrentSlug())
-      debugger;
-
+      const categoryItem = this.getCategoryBySlug(this.viewManager.getCurrentSlug())
       if(categoryItem && categoryItem.navigation !== this.cachedNavigation) {
+        // The nav bar does not reflect the url state, update
+        this.cachedNavigation = categoryItem.navigation
         this.setNavSelection(categoryItem.id)
-        this.viewBuilder.updateNav(categoryItem.id, categoryItem.navigation, false)
+        this.viewManager.updateNav(categoryItem.id, categoryItem.navigation, false)
       }
     }
+    // Tell react to change it's internal history, or cache the changes for later if we can't currently
     pushHistory(navigation) {
       this.cachedNavigation = navigation
       if(this.reactState) {
@@ -239,7 +251,7 @@ const invasive = true;
           })
       })
     }
-
+    // Handle categories + cards from fetch request results
     handleResource(json) {
       for(const category of json) {
         const slug = encodeURIComponent(category.slug.toLowerCase())
@@ -265,7 +277,7 @@ const invasive = true;
       const self = this
       const navigation = this.navIdMap[id].navigation
       item.addEventListener("click", function(_){
-        self.viewBuilder.updateNav(id, navigation, true);
+        self.viewManager.updateNav(id, navigation, true);
         self.setNavSelection(id)
       }, false)
       return item;
@@ -280,6 +292,7 @@ const invasive = true;
         }
       }
     }
+    // Returns a promise, resolves to cardId -> categoryId
     getCategory(cardId) {
       return new Promise(resolve => {
         if(this.cardClassMap[cardId]){
@@ -300,7 +313,7 @@ const invasive = true;
     getCardIds(navId) {
       return this.navIdMap[navId].cards
     }
-
+    // Show nav items based on what cards the user has access to
     showNavForCardIds(cardIds) {
       for(const categoryId of Object.keys(this.navIdMap)) {
         const navItem = this.navIdMap[categoryId];
@@ -308,13 +321,14 @@ const invasive = true;
         for(const cardId of navItem.cards) {
           if(this.cardClassMap[cardId] === undefined) this.cardClassMap[cardId] = ["id-all"]
           this.cardClassMap[cardId].push("id-" + categoryId)
-
+          // If we haven't added this category yet and we have a cardId from that category, add it to the dom
           if(cardIds.includes(cardId) && !isItemAdded) {
             this.append(navItem.navElement, navItem.label)
             isItemAdded = true;
           }
         }
       }
+      // Resolve all requests for cardId -> categoryId
       for(const cardId of Object.keys(this.categoryRequests)) {
         const request = this.categoryRequests[cardId];
         const categoryId = this.cardClassMap[cardId];
@@ -322,6 +336,7 @@ const invasive = true;
           request(categoryId)
         }
       }
+      // We should never have leftover requests after this step
       if(Object.keys(this.categoryRequests).length !== 0) debugger;
       this.createFakeNavItem("all", "all", "All", cardIds, {
         pathname: "/discover",
@@ -346,14 +361,14 @@ const invasive = true;
     }
   }
 
-  class DisplayBuilder extends OrderedBuilder {
+  class CardManager extends OrderedDomView {
     isResourceLoaded;
-    viewBuilder;
+    viewManager;
 
     cardIdMap;
-    constructor(viewBuilder) {
-      super("displayBuilder");
-      this.viewBuilder = viewBuilder;
+    constructor(viewManager) {
+      super("cardManager");
+      this.viewManager = viewManager;
       this.isResourceLoaded = false;
       this.cardIdMap = {};
     }
@@ -374,6 +389,7 @@ const invasive = true;
     handleResource(json) {
       for(const card of json.cardsConfiguration) {
         this.cardIdMap[card.id] = {card: card}
+        // For all the embedded cards, fetch each individual resource and handle it
         if(card.type === "WysiwygCard") {
           originalFetch("https://experience.elluciancloud.com/api/embedded-html/" + card.id)
             .then(result => result.json())
@@ -390,7 +406,7 @@ const invasive = true;
           text: card.title
         }),
       ]
-      if (card.externalLinkUrl) {
+      if (card.externalLinkUrl) { // The "..." on the default cards
         title.push(
           dom("a", {
             class: "title-link",
@@ -411,24 +427,28 @@ const invasive = true;
     }
     handleCardResource(htmlString, card) {
       const cardElement = this.createCardElement(htmlString, card);
-      this.viewBuilder.getCardCategory(card.id)
-        .then(categoryId => cardElement.classList.add(...categoryId))
+      this.viewManager.getCardCategory(card.id)
+        .then(categoryId => cardElement.classList.add(...categoryId)) // request the category id
       this.cardIdMap[card.id].cardElement = cardElement;
-      this.append(cardElement, card.title);
+      this.append(cardElement, card.title); // add to dom, sort by title
     }
   }
 
+  // coordinates navManager and cardManager, attaches them to shadow dom
   class ViewManager {
-    navBuilder;
-    displayBuilder;
+    navManager;
+    cardManager;
     domElement;
     body;
     constructor() {
-      this.navBuilder = new NavBuilder(this);
-      this.displayBuilder = new DisplayBuilder(this);
+      this.navManager = new NavManager(this);
+      this.cardManager = new CardManager(this);
 
     }
     build() {
+      /*
+       * Custom view-element dispatches a "disconnect" event when removed from the dom
+       */
       this.domElement = dom("view-element", {
         id: "MyMSUViewManager",
         //TODO: Better padding
@@ -441,6 +461,7 @@ const invasive = true;
       this.domElement.addEventListener("disconnected", event => {
         event.stopImmediatePropagation();
         event.preventDefault();
+        // Appending to a new parent dispatches the event as well
         if(!this.domElement.isConnected) this.attach();
       })
 
@@ -448,9 +469,9 @@ const invasive = true;
       this.body = dom("div", {
         class: "body"
       }, [
-        this.navBuilder.getElement(),
+        this.navManager.getElement(),
         dom("div", {class: "yellow-bar"}),
-        this.displayBuilder.getElement()
+        this.cardManager.getElement()
       ]);
       const resetElement = dom("div", {
         class: "reset",
@@ -462,6 +483,7 @@ const invasive = true;
       ])
       this.domElement.shadowRoot.appendChild(resetElement);
       this.loadResources();
+      // Cheap way to hide native navbar
       const oldNavSheet = new CSSStyleSheet()
       oldNavSheet.replaceSync("#dashboard_tabs_container{display:none !important;}")
       document.adoptedStyleSheets.push(oldNavSheet);
@@ -470,6 +492,7 @@ const invasive = true;
 
     }
     attach() {
+      // Insert below native nav bar
       document.documentElement.appendChild(this.domElement);
       waitForElementId("maincontent")
         .then(element => {
@@ -478,6 +501,7 @@ const invasive = true;
         });
     }
     getCurrentSlug() {
+      // get slug from current url
       const pathName = window.location.pathname;
       const filter = "/montana"
       const filterIndex = pathName.indexOf(filter);
@@ -485,41 +509,44 @@ const invasive = true;
         const path = pathName.slice(filter.length);
         const params = new URLSearchParams(window.location.search)
         const category = params.get("category")
-        return path === "/discover" ? "all" : (category ? category : "dashboard")
+        const result = path === "/discover" ? "all" : (!category || category === "home" ? "dashboard" : category)
+        return encodeURIComponent(result);
       } else {
         return false;
       }
     }
     loadResources() {
-      this.navBuilder.loadResource("https://experience.elluciancloud.com/api/categories")
+      this.navManager.loadResource("https://experience.elluciancloud.com/api/categories")
         .then(() => this.checkIsLoaded())
-      this.displayBuilder.loadResource("https://experience.elluciancloud.com/api/dashboard-load")
+      this.cardManager.loadResource("https://experience.elluciancloud.com/api/dashboard-load")
         .then(() => this.checkIsLoaded())
     }
     checkIsLoaded() {
-      if(this.displayBuilder.isResourceLoaded && this.navBuilder.isResourceLoaded) {
-        this.navBuilder.showNavForCardIds(this.displayBuilder.getCardIds())
+      if(this.cardManager.isResourceLoaded && this.navManager.isResourceLoaded) {
+        // When both resources are loaded, feed cards into nav for filtering
+        this.navManager.showNavForCardIds(this.cardManager.getCardIds())
         const currentSlug = this.getCurrentSlug()
-        const categoryItem = this.navBuilder.getCategoryBySlug(currentSlug)
+        const categoryItem = this.navManager.getCategoryBySlug(currentSlug)
+        // Update nav state if needed
         if(categoryItem) {
-          this.navBuilder.setNavSelection(categoryItem.id)
+          this.navManager.setNavSelection(categoryItem.id)
           this.updateNav(categoryItem.id, categoryItem.navigation, false)
         }
-        //TODO: add dashboard tab
       }
     }
     updateNav(id, navigation, shouldPush) {
+      // apply css that unhides a specific class of cards
       const sheet = new CSSStyleSheet()
       sheet.replaceSync(`.id-${id} {display: initial !important}`)
       this.domElement.shadowRoot.adoptedStyleSheets = [sheet]
-      shouldPush && this.navBuilder.pushHistory(navigation);
+      shouldPush && this.navManager.pushHistory(navigation);
     }
     getCardCategory(cardId) {
-      return this.navBuilder.getCategory(cardId)
+      return this.navManager.getCategory(cardId)
     }
 
   }
 
-  const viewBuilder = new ViewManager();
-  viewBuilder.build();
+  const viewManager = new ViewManager();
+  viewManager.build();
 })()
