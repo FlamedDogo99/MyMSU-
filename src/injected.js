@@ -1,185 +1,168 @@
 (function () {
-  const invasive = true;
-  const fixCard = {
-    externalLinkUrl: null,
-    dateCreated: 1,
-    dateMarkedDefault: 0,
-    configurationData: {
-      card: {
-        client: {}
+  const Config = {
+    static: {
+      API: {
+        dashboard: "https://experience.elluciancloud.com/api/dashboard-load",
+        categories: "https://experience.elluciancloud.com/api/categories"
+      },
+      css: {
+        react: {
+          tabs: "#dashboard_tabs_container",
+          stateContainer: "spaceDetailOuterDiv",
+          tabsParent: "#maincontent"
+        }
+      },
+      cards: {
+        types: {
+          embedded: "WysiwygCard",
+          list: "all-accounts|Ellucian|Foundation|Quick%20Links",
+          degreeworks: "s_degreeworks_link"
+        },
+        fixCard: {
+          externalLinkUrl: null,
+          dateCreated: 1,
+          dateMarkedDefault: 0,
+          configurationData: {
+            card: {
+              client: {}
+            }
+          },
+          miniCardIcon: "file-signature",
+          isVisible: true,
+          externalLinkLabel: null,
+          isExtensionTemplate: true,
+          isLocked: true,
+          roles: ["EXP_ADMIN_BZ", "EXP_EMPLOYEE_BZ"],
+          isDefaultCard: false,
+          dateMarkedLocked: 0,
+          description: "MyMSU breaks without this",
+          id: "my-msu-minus-card-fix",
+          tags: ["card"],
+          type: "all-accounts|Ellucian|Foundation|Quick%20Links",
+          title: "MyMSU Breaks without this"
+        }
       }
     },
-    miniCardIcon: "file-signature",
-    isVisible: true,
-    externalLinkLabel: null,
-    isExtensionTemplate: true,
-    isLocked: true,
-    roles: ["EXP_ADMIN_BZ", "EXP_EMPLOYEE_BZ"],
-    isDefaultCard: false,
-    dateMarkedLocked: 0,
-    description: "MyMSU breaks without this",
-    id: "my-msu-minus-card-fix",
-    tags: ["card"],
-    type: "all-accounts|Ellucian|Foundation|Quick%20Links",
-    title: "MyMSU Breaks without this"
-  };
-  const originalFetch = window.fetch;
-  window.fetch = async (...args) => {
-    const [resource, config] = args;
+    get: {
+      API: {
+        degreeworks: (gid) => "https://degreeworks.montana.edu:5559/DashboardServlet/bz_PROD/?SCRIPT=SD2WORKS&PORTALSTUID=" + gid,
+        embedded: (cardId) => "https://experience.elluciancloud.com/api/embedded-html/" + cardId
 
-    function overrideJson(contains, callback) {
-      /* We cannot throw an error here. If any problem occurs, we need to pretend that everything is fine,
-       * and just return the original fetch result */
-      try {
-        const index = resource.indexOf(contains);
-        if (index !== -1) {
-          response.json = () =>
-            response
-              .clone()
-              .json()
-              .then((data) => callback(data, index));
-        }
-      } catch (_) {}
+      }
     }
-    const response = await originalFetch.call(this, ...args);
-    overrideJson("api/locked-cards", (data) => {
-      if (config.method === "GET" || !config.method) data.cards = []; // Remove list of locked cards
-      return data;
-    });
-    overrideJson("api/preferences", (data) => {
-      if (config.method === "GET" || !config.method) {
-        data.dashboard.cards = data.dashboard.cards.filter((card) => {
-          return !card.isLocked;
-        }); // Remove locked cards from preferences
-      }
-      return data;
-    });
-    overrideJson("api/dashboard-load", (data) => {
-      if (config.method === "GET" || !config.method) {
-        data.announcements = data.announcements.filter((item) => {
-          return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
-        });
-        if (invasive) {
-          data.cardsConfiguration = data.cardsConfiguration.filter((card) => {
-            return (
-              card.type !== "WysiwygCard" &&
-              card.type !== "all-accounts|Ellucian|Foundation|Quick%20Links"
-            );
-          });
-          data.cardsConfiguration.push(fixCard);
-        }
-      }
-      return data;
-    });
-    overrideJson("api/categories", (data) => {
-      if (config.method === "GET" || !config.method) {
-        for (const categoryItem of data) {
-          categoryItem.cards.push(fixCard.id);
-        }
-      }
-      return data;
-    });
-    return response;
-  };
-  if (!invasive) return;
-
-  /*
-   * Helper function, returns promise for element by id
-   */
-  function waitForElement(selector) {
-    return new Promise((resolve) => {
-      if (document.querySelector(selector)) {
-        resolve(document.querySelector(selector));
-      } else {
-        const observer = new MutationObserver((_) => {
-          if (document.querySelector(selector)) {
-            observer.disconnect();
-            resolve(document.querySelector(selector));
-          }
-        });
-        observer.observe(document.documentElement, {
-          childList: true,
-          subtree: true
-        });
-      }
-    });
   }
-  /*
-   * React will remove the ViewManager element when it changes state.
-   * This allows us to detect removal and reinsert the ViewManager element
-   * back into the dom
-   */
-  class ViewElement extends HTMLElement {
+
+  class SharedPromise {
+    promiseObject
+    promiseResolution;
+    value;
     constructor() {
-      super();
+      const self = this
+      this.promiseObject = new Promise(resolve => {
+        self.promiseResolution = resolve
+      })
     }
+    get() {
+      return this.value ? new Promise(resolve => resolve(this.value)) : this.promiseObject
+    }
+    updatePromise(value) {
+      this.value = value;
+      this.promiseResolution(value);
+    }
+  }
+
+  class DomHelper {
+    static el(tagName, options, children) {
+      const element = document.createElement(tagName);
+      for (const style in options.style) {
+        if (Object.prototype.hasOwnProperty.call(options.style, style)) {
+          element.style[style] = options.style[style];
+        }
+      }
+      options.id && (element.id = options.id);
+      options.href && (element.href = options.href);
+      options.class && (element.className = options.class);
+      options.text && (element.innerText = options.text);
+      if (children && children.length !== 0) element.append(...children);
+      return element;
+    }
+    static string(text) {
+      const parser = new DOMParser();
+      return parser.parseFromString(text, "text/html");
+    }
+    static strip(html, options = {imageSubstitute: "Link"}) {
+      const images = Array.from(html.getElementsByTagName("img"));
+      for (let image of images) {
+        if (image.closest("a")) {
+          const alt = image.alt;
+          image.replaceWith(
+            this.el("p", {
+              class: "replace-image",
+              text: alt && alt !== "" ? alt : options.imageSubstitute
+            })
+          );
+        } else {
+          image.remove();
+        }
+      }
+      const brs = Array.from(html.getElementsByTagName("br"));
+      for (let br of brs) {
+        br.remove();
+      }
+      return Array.from(html.body.children);
+    }
+    static waitForElement(selector) {
+      return new Promise((resolve) => {
+        if (document.querySelector(selector)) {
+          resolve(document.querySelector(selector));
+        } else {
+          const observer = new MutationObserver((_) => {
+            if (document.querySelector(selector)) {
+              observer.disconnect();
+              resolve(document.querySelector(selector));
+            }
+          });
+          observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+          });
+        }
+      });
+    }
+    static replaceStyling(element, cssText) {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(cssText);
+      element.adoptedStyleSheets = [sheet];
+    }
+    static addStyling(element, cssText) {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(cssText);
+      element.adoptedStyleSheets.push(sheet);
+    }
+  }
+  const dom = DomHelper;
+
+  customElements.define("view-element", class ViewElement extends HTMLElement {
     disconnectedCallback() {
       this.dispatchEvent(new Event("disconnected"));
     }
-  }
-  customElements.define("view-element", ViewElement);
+  });
 
-  /*
-   * Basic dom builder
-   */
-  const dom = function (tagName, options, children) {
-    const element = document.createElement(tagName);
-    for (const style in options.style) {
-      if (Object.prototype.hasOwnProperty.call(options.style, style)) {
-        element.style[style] = options.style[style];
-      }
-    }
-    options.id && (element.id = options.id);
-    options.href && (element.href = options.href);
-    options.class && (element.className = options.class);
-    options.text && (element.innerText = options.text);
-    if (children && children.length !== 0) element.append(...children);
-    return element;
-  };
-  dom.string = function (
-    text,
-    options = {
-      imageSubstitute: "Link"
-    }
-  ) {
-    const parser = new DOMParser();
-    const html = parser.parseFromString(text, "text/html");
-    //TODO: separate the filtering logic
-    const images = Array.from(html.getElementsByTagName("img"));
-    for (let image of images) {
-      if (image.closest("a")) {
-        const alt = image.alt;
-        image.replaceWith(
-          dom("p", {
-            class: "replace-image",
-            text: alt && alt !== "" ? alt : options.imageSubstitute
-          })
-        );
-      } else {
-        image.remove();
-      }
-    }
-    const brs = Array.from(html.getElementsByTagName("br"));
-    for (let br of brs) {
-      br.remove();
-    }
-    return Array.from(html.body.children);
-  };
-  /*
-   * View builder that inserts children in alphabetical order into the dom
-   */
   class OrderedDomView {
     children;
     body;
+
     constructor(className) {
-      this.body = dom("div", {
+      this.body = dom.el("div", {
         class: className
       });
       this.children = [];
     }
+
     getElement() {
       return this.body;
     }
+
     append(child, sortBy) {
       const childPair = {
         sortBy: sortBy,
@@ -204,19 +187,13 @@
     }
   }
 
-  class DataManager {
-    userData;
-    reactState;
-    cachedRequests;
+  class UserDataManager {
+    userDataPromise;
     constructor() {
-      this.cachedRequests = {
-        react: [],
-        userData: []
-      };
-      this.hookNativeObject();
-      this.hookReactObject();
+      this.userDataPromise = new SharedPromise();
+      this.initSetHooks();
     }
-    hookNativeObject() {
+    initSetHooks() {
       const self = this;
       Object.defineProperties(window, {
         ___PRELOADED_STATE__: {
@@ -229,14 +206,29 @@
           },
           set: function (val) {
             this.___PRELOADED_STATE__ = val;
-            self.userData = JSON.parse(window.atob(this.___PRELOADED_STATE__));
-            self.updatePromises("userData", self.userData);
+
+            self.parseState(this.___PRELOADED_STATE__)
           },
           configurable: true
         }
       });
     }
-    hookReactObject() {
+    parseState(state) {
+      const value = JSON.parse(window.atob(state))
+      this.userDataPromise.updatePromise(value)
+    }
+
+    getUserData() {
+      return this.userDataPromise.get();
+    }
+  }
+  class ReactManager {
+    historyPromise;
+    constructor() {
+      this.initSetHooks();
+      this.historyPromise = new SharedPromise()
+    }
+    initSetHooks() {
       function getState(element) {
         if (!element) return;
         const reactKey = Object.keys(element).find((key) =>
@@ -244,20 +236,18 @@
         );
         if (reactKey) return element[reactKey]?.children?._owner?.stateNode;
       }
-      const internal = getState(document.getElementById("spaceDetailOuterDiv"));
+      const internal = getState(document.getElementById(Config.static.css.react.stateContainer));
       if (internal) {
-        this.reactState = internal;
-        this.updatePromises("react", internal);
+        this.handleInternal(internal)
         return;
       }
       const observer = new MutationObserver((_) => {
         const internal = getState(
-          document.getElementById("spaceDetailOuterDiv")
+          document.getElementById(Config.static.css.react.stateContainer)
         );
         if (internal) {
           observer.disconnect();
-          this.reactState = internal;
-          this.updatePromises("react", internal);
+          this.handleInternal(internal)
         }
       });
       observer.observe(document.documentElement, {
@@ -265,67 +255,188 @@
         subtree: true
       });
     }
-    updatePromises(type, data) {
-      for (let resolve of this.cachedRequests[type]) {
-        resolve(data);
+    handleInternal(internal) {
+      this.historyPromise.updatePromise(internal.props.history);
+    }
+    getHistory() {
+      return this.historyPromise.get();
+    }
+  }
+
+  class NetworkManager {
+    fetch;
+    cachedNavigation;
+    reactManager
+    history;
+    listeners;
+    constructor(reactManager) {
+      this.reactManager = reactManager;
+      this.listeners = {}
+      this.initOverrides();
+      this.initReactHistory();
+      this.initListeners();
+
+    }
+    initOverrides() {
+      this.fetch = window.fetch
+      const self = this;
+      window.fetch = async (...args) => {
+        const [resource, config] = args;
+
+        function overrideJson(contains, callback) {
+          /* We cannot throw an error here. If any problem occurs, we need to pretend that everything is fine,
+           * and just return the original fetch result */
+          try {
+            const index = resource.indexOf(contains);
+            if (index !== -1) {
+              response.json = () =>
+                response
+                  .clone()
+                  .json()
+                  .then((data) => callback(data, index));
+            }
+          } catch (_) {}
+        }
+        const response = await self.fetch.call(window, ...args);
+        overrideJson("api/locked-cards", (data) => {
+          if (config.method === "GET" || !config.method) data.cards = []; // Remove list of locked cards
+          return data;
+        });
+        overrideJson("api/preferences", (data) => {
+          if (config.method === "GET" || !config.method) {
+            data.dashboard.cards = data.dashboard.cards.filter((card) => {
+              return !card.isLocked;
+            }); // Remove locked cards from preferences
+          }
+          return data;
+        });
+        overrideJson("api/dashboard-load", (data) => {
+          if (config.method === "GET" || !config.method) {
+            data.announcements = data.announcements.filter((item) => {
+              return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
+            });
+            data.cardsConfiguration = data.cardsConfiguration.filter((card) => {
+              return (
+                card.type !== Config.static.cards.types.embedded &&
+                card.type !== Config.static.cards.types.list
+              );
+            });
+            data.cardsConfiguration.push(Config.static.cards.fixCard);
+
+          }
+          return data;
+        });
+        overrideJson("api/categories", (data) => {
+          if (config.method === "GET" || !config.method) {
+            for (const categoryItem of data) {
+              categoryItem.cards.push(Config.static.cards.fixCard.id);
+            }
+          }
+          return data;
+        });
+        return response;
+      };
+    }
+    json(url) {
+      const self = this;
+      return new Promise(resolve => {
+        self.fetch.call(window, url)
+          .then(response => response.json())
+          .then(json => resolve(json));
+      })
+    }
+    getCurrentSlug() {
+      const pathName = window.location.pathname;
+      const filter = "/montana";
+      const filterIndex = pathName.indexOf(filter);
+      if (filterIndex !== -1) {
+        const path = pathName.slice(filter.length);
+        const params = new URLSearchParams(window.location.search);
+        const category = params.get("category");
+        const result =
+          path === "/discover"
+            ? "all"
+            : !category || category === "home"
+              ? "dashboard"
+              : category;
+        return encodeURIComponent(result);
+      } else {
+        return false;
       }
-      this.cachedRequests[type] = {};
     }
-    getReactState() {
-      return new Promise((resolve) => {
-        if (this.reactState) resolve(this.reactState);
-        this.cachedRequests.react.push((state) => resolve(state));
+    initReactHistory() {
+      this.reactManager.getHistory()
+        .then(propHistory => {
+          this.history = propHistory;
+          if (this.cachedNavigation) {
+            this.pushHistory(this.cachedNavigation);
+          }
+        })
+    }
+    pushHistory(navigation) {
+      this.cachedNavigation = navigation;
+      if (this.history) {
+        this.history.push(navigation);
+      }
+    }
+    initListeners() {
+      window.addEventListener("popstate", (_) => {
+        setTimeout(() => {
+          this.dispatch("history", null)
+        }, 1);
       });
     }
-    getUserData() {
-      return new Promise((resolve) => {
-        if (this.userData) resolve(this.userData);
-        this.cachedRequests.userData.push((data) => resolve(data));
-      });
+    addEventListener(type, callback) {
+      if(!this.listeners[type]) {
+        this.listeners[type] = []
+      }
+      this.listeners[type].push(callback)
+    }
+    dispatch(type, data) {
+      const listeners = this.listeners[type]
+      if(listeners) {
+        for(const listener of listeners) {
+          listener(data)
+        }
+      }
+    }
+    getLastNavigation() {
+      return this.cachedNavigation
+    }
+    setLastNavigation(navigation) {
+      this.cachedNavigation = navigation;
     }
   }
 
   class NavManager extends OrderedDomView {
-    isResourceLoaded; // if fetched resources have returned
     viewManager;
-    dataManager;
+    userDataManager;
+    networkManager;
+    isResourceLoaded; // if fetched resources have returned
     navIdMap; // categoryId -> navItem
     cardClassMap; // cardId -> navId class
     categoryRequests; // array of requested categories for cardIds
 
-    reactState; // react state object from dom
-    cachedNavigation; // Last state set from navigating using the navManager
 
-    constructor(viewManager, dataManager) {
+    constructor(viewManager, userDataManager, networkManager) {
       super("navManager");
       this.viewManager = viewManager;
-      this.dataManager = dataManager;
+      this.userDataManager = userDataManager;
+      this.networkManager = networkManager;
       this.isResourceLoaded = false;
       this.navIdMap = {};
       this.cardClassMap = {};
       this.categoryRequests = {};
 
-      dataManager.getReactState().then((reactState) => {
-        this.reactState = reactState;
-        // If we've already changed our nav state, update the react components
-        if (this.cachedNavigation) {
-          this.pushHistory(this.cachedNavigation);
-        }
-      });
-      const self = this;
-      window.addEventListener("popstate", (_) => {
-        setTimeout(() => {
-          self.historyChanged();
-        }, 1);
-      });
+      this.networkManager.addEventListener("history", this.historyChanged)
     }
     historyChanged() {
       const categoryItem = this.getCategoryBySlug(
-        this.viewManager.getCurrentSlug()
+        this.networkManager.getCurrentSlug()
       );
-      if (categoryItem && categoryItem.navigation !== this.cachedNavigation) {
+      if (categoryItem && categoryItem.navigation !== this.networkManager.getLastNavigation()) {
         // The nav bar does not reflect the url state, update
-        this.cachedNavigation = categoryItem.navigation;
+        this.networkManager.setLastNavigation(categoryItem.navigation);
         this.setNavSelection(categoryItem.id);
         this.viewManager.updateNav(
           categoryItem.id,
@@ -334,27 +445,9 @@
         );
       }
     }
-    // Tell react to change its internal history, or cache the changes for later if we can't currently
-    pushHistory(navigation) {
-      this.cachedNavigation = navigation;
-      if (this.reactState) {
-        this.reactState.props.history.push(navigation);
-      }
-    }
-    loadResource(resourceUrl) {
-      return new Promise((resolve) => {
-        originalFetch(resourceUrl)
-          .then((result) => result.json())
-          .then((json) => {
-            this.handleResource(json);
-            this.isResourceLoaded = true;
-            resolve();
-          });
-      });
-    }
     // Handle categories + cards from fetch request results
-    handleResource(json) {
-      for (const category of json) {
+    parseCategories(categories) {
+      for (const category of categories) {
         const slug = encodeURIComponent(category.slug.toLowerCase());
         this.navIdMap[category.id] = {
           cards: category.cards,
@@ -371,9 +464,10 @@
           category.label
         );
       }
+      this.isResourceLoaded = true
     }
     createNavElement(id, label) {
-      const item = dom("span", {
+      const item = dom.el("span", {
         class: "nav-item",
         text: label
       });
@@ -489,68 +583,54 @@
   }
 
   class CardManager extends OrderedDomView {
-    isResourceLoaded;
     viewManager;
-
+    userDataManager;
+    networkManager;
+    isResourceLoaded;
     cardIdMap;
-    constructor(viewManager, dataManager) {
+    constructor(viewManager, userDataManager, networkManager) {
       super("cardManager");
       this.viewManager = viewManager;
-      this.dataManager = dataManager;
+      this.userDataManager = userDataManager;
+      this.networkManager = networkManager;
       this.isResourceLoaded = false;
       this.cardIdMap = {};
-    }
-    loadResource(resourceUrl) {
-      return new Promise((resolve) => {
-        originalFetch(resourceUrl)
-          .then((result) => result.json())
-          .then((json) => {
-            this.handleResource(json);
-            this.isResourceLoaded = true;
-            resolve();
-          });
-      });
     }
     getCardIds() {
       return Object.keys(this.cardIdMap);
     }
-    handleResource(json) {
+    parseDashboard(json) {
       for (const card of json.cardsConfiguration) {
         this.cardIdMap[card.id] = { card: card };
         // For all the embedded cards, fetch each individual resource and handle it
-        if (card.type === "WysiwygCard") {
-          originalFetch(
-            "https://experience.elluciancloud.com/api/embedded-html/" + card.id
-          )
-            .then((result) => result.json())
-            .then((htmlString) => {
+        if (card.type === Config.static.cards.types.embedded) {
+          this.networkManager.json(Config.get.API.embedded(card.id))
+            .then(htmlString => {
               this.handleCard(
-                dom.string(htmlString, {
+                dom.strip(dom.string(htmlString), {
                   imageSubstitute: card.title
                 }),
                 card
               );
-            });
+            })
         } else if (
-          card.type === "all-accounts|Ellucian|Foundation|Quick%20Links"
+          card.type === Config.static.cards.types.list
         ) {
           const linkList =
             card.configurationData.card.customConfiguration.client.linkList;
           const links = linkList.map((link) => {
-            return dom("a", { href: link.url }, [
-              dom("p", { text: link.name })
+            return dom.el("a", { href: link.url }, [
+              dom.el("p", { text: link.name })
             ]);
           });
           this.handleCard(links, card);
-        } else if (card.type.indexOf("s_degreeworks_link") !== -1) {
-          // Degreeworks card
-          const degreeworksLink = dom("a", {}, [
-            dom("p", { text: card.title })
+        } else if (card.type.indexOf(Config.static.cards.types.degreeworks) !== -1) {
+          const degreeworksLink = dom.el("a", {}, [
+            dom.el("p", { text: card.title })
           ]);
-          this.dataManager.getUserData().then((data) => {
+          this.userDataManager.getUserData().then((data) => {
             degreeworksLink.href =
-              "https://degreeworks.montana.edu:5559/DashboardServlet/bz_PROD/?SCRIPT=SD2WORKS&PORTALSTUID=" +
-              data.user.erpId;
+              Config.get.API.degreeworks(data.user.erpId)
           });
           this.handleCard([degreeworksLink], {
             title: card.title,
@@ -558,10 +638,11 @@
           });
         }
       }
+      this.isResourceLoaded = true;
     }
     createCardElement(contents, card) {
       const title = [
-        dom("span", {
+        dom.el("span", {
           class: "card-title",
           text: card.title
         })
@@ -569,14 +650,14 @@
       if (card.externalLinkUrl) {
         // The "..." on the default cards
         title.push(
-          dom(
+          dom.el(
             "a",
             {
               class: "title-link",
               href: card.externalLinkUrl
             },
             [
-              dom("button", {
+              dom.el("button", {
                 text:
                   card.externalLinkLabel && card.externalLinkLabel !== ""
                     ? card.externalLinkLabel
@@ -586,9 +667,9 @@
           )
         );
       }
-      return dom("div", { class: "flattened-card" }, [
-        dom("span", { class: "title-container" }, title),
-        dom("div", { class: "card-contents" }, contents)
+      return dom.el("div", { class: "flattened-card" }, [
+        dom.el("span", { class: "title-container" }, title),
+        dom.el("div", { class: "card-contents" }, contents)
       ]);
     }
     handleCard(contents, card) {
@@ -605,19 +686,23 @@
   class ViewManager {
     navManager;
     cardManager;
-    dataManager;
+    userDataManager;
+    networkManager;
+    reactManager
     domElement;
     body;
     constructor() {
-      this.dataManager = new DataManager();
-      this.navManager = new NavManager(this, this.dataManager);
-      this.cardManager = new CardManager(this, this.dataManager);
+      this.reactManager = new ReactManager();
+      this.networkManager = new NetworkManager(this.reactManager)
+      this.userDataManager = new UserDataManager();
+      this.navManager = new NavManager(this, this.userDataManager, this.networkManager);
+      this.cardManager = new CardManager(this, this.userDataManager, this.networkManager);
     }
     build() {
       /*
        * Custom view-element dispatches a "disconnect" event when removed from the dom
        */
-      this.domElement = dom("view-element", {
+      this.domElement = dom.el("view-element", {
         id: "MyMSUViewManager",
         //TODO: Better padding
         style: {
@@ -634,18 +719,18 @@
       });
 
       this.domElement.attachShadow({ mode: "open" });
-      this.body = dom(
+      this.body = dom.el(
         "div",
         {
           class: "body"
         },
         [
           this.navManager.getElement(),
-          dom("div", { class: "yellow-bar" }),
+          dom.el("div", { class: "yellow-bar" }),
           this.cardManager.getElement()
         ]
       );
-      const resetElement = dom(
+      const resetElement = dom.el(
         "div",
         {
           class: "reset",
@@ -658,55 +743,35 @@
       this.domElement.shadowRoot.appendChild(resetElement);
       this.loadResources();
       // Cheap way to hide native navbar
-      const oldNavSheet = new CSSStyleSheet();
-      oldNavSheet.replaceSync(
-        "#dashboard_tabs_container{display:none !important;}"
-      );
-      document.adoptedStyleSheets.push(oldNavSheet);
+      dom.addStyling(document, Config.static.css.react.tabs + "{display:none !important;}")
 
       this.attach();
     }
     attach() {
       // Insert below native nav bar
       document.documentElement.appendChild(this.domElement);
-      waitForElement("body").then((element) => {
+      dom.waitForElement("body").then((element) => {
         if (element.firstChild) {
           element.insertBefore(this.domElement, element.firstChild);
         } else {
           element.appendChild(this.domElement);
         }
-        waitForElement("#maincontent").then((element) => {
+        dom.waitForElement(Config.static.css.react.tabsParent).then((element) => {
           element.parentElement.insertBefore(this.domElement, element);
         });
       });
     }
-    getCurrentSlug() {
-      // get slug from current url
-      const pathName = window.location.pathname;
-      const filter = "/montana";
-      const filterIndex = pathName.indexOf(filter);
-      if (filterIndex !== -1) {
-        const path = pathName.slice(filter.length);
-        const params = new URLSearchParams(window.location.search);
-        const category = params.get("category");
-        const result =
-          path === "/discover"
-            ? "all"
-            : !category || category === "home"
-              ? "dashboard"
-              : category;
-        return encodeURIComponent(result);
-      } else {
-        return false;
-      }
-    }
     loadResources() {
-      this.navManager
-        .loadResource("https://experience.elluciancloud.com/api/categories")
-        .then(() => this.checkIsLoaded());
-      this.cardManager
-        .loadResource("https://experience.elluciancloud.com/api/dashboard-load")
-        .then(() => this.checkIsLoaded());
+      this.networkManager.json(Config.static.API.categories)
+        .then(categories => {
+          this.navManager.parseCategories(categories)
+          this.checkIsLoaded();
+        })
+      this.networkManager.json(Config.static.API.dashboard)
+        .then(dashboard => {
+          this.cardManager.parseDashboard(dashboard)
+          this.checkIsLoaded()
+        })
     }
     checkIsLoaded() {
       if (
@@ -715,7 +780,7 @@
       ) {
         // When both resources are loaded, feed cards into nav for filtering
         this.navManager.showNavForCardIds(this.cardManager.getCardIds());
-        const currentSlug = this.getCurrentSlug();
+        const currentSlug = this.networkManager.getCurrentSlug();
         const categoryItem = this.navManager.getCategoryBySlug(currentSlug);
         // Update nav state if needed
         if (categoryItem) {
@@ -725,11 +790,12 @@
       }
     }
     updateNav(id, navigation, shouldPush) {
-      // apply css that unhides a specific class of cards
-      const sheet = new CSSStyleSheet();
-      sheet.replaceSync(`.id-${id} {display: initial !important}`);
-      this.domElement.shadowRoot.adoptedStyleSheets = [sheet];
-      shouldPush && this.navManager.pushHistory(navigation);
+      dom.replaceStyling(
+        this.domElement.shadowRoot,
+        `.id-${id} {display: initial !important}`
+      )
+
+      shouldPush && this.networkManager.pushHistory(navigation);
     }
     getCardCategory(cardId) {
       return this.navManager.getCategory(cardId);
