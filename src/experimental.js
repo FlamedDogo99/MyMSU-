@@ -6,11 +6,11 @@ function injectIntoMain() {
 injectIntoMain();
 
 function waitForId(selector) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     if (document.getElementById(selector)) {
       return resolve(document.getElementById(selector));
     }
-    const observer = new MutationObserver(mutations => {
+    const observer = new MutationObserver((mutations) => {
       if (document.getElementById(selector)) {
         observer.disconnect();
         resolve(document.getElementById(selector));
@@ -23,10 +23,9 @@ function waitForId(selector) {
   });
 }
 
-waitForId("MyMSUViewManager")
-  .then((element) => {
-    const link = document.createElement("link");
-    link.href = chrome.runtime.getURL("experimental.css");
-    link.rel = "stylesheet";
-    element.shadowRoot.appendChild(link);
-  });
+waitForId("MyMSUViewManager").then((element) => {
+  const link = document.createElement("link");
+  link.href = chrome.runtime.getURL("experimental.css");
+  link.rel = "stylesheet";
+  element.shadowRoot.appendChild(link);
+});
