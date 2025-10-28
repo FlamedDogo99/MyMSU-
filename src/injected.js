@@ -1,5 +1,4 @@
 (function() {
-
   const invasive = true;
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {
@@ -38,9 +37,11 @@
         data.announcements = data.announcements.filter((item) => {
           return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
         });
-        if(invasive) data.cardsConfiguration = data.cardsConfiguration.filter(card => {
-          return card.type !== "WysiwygCard" && card.type !== "all-accounts|Ellucian|Foundation|Quick%20Links"
-        });
+        if(invasive) {
+          data.cardsConfiguration = data.cardsConfiguration.filter(card => {
+            return card.type !== "WysiwygCard" && card.type !== "all-accounts|Ellucian|Foundation|Quick%20Links"
+          });
+        }
       }
       return data;
     });
@@ -252,7 +253,7 @@
           }
         })
       const self = this
-      window.addEventListener("popstate", (event) => {
+      window.addEventListener("popstate", (_) => {
         setTimeout(() => {
           self.historyChanged();
         },1)
@@ -371,7 +372,14 @@
         }
       }
       // We should never have leftover requests after this step
-      if(Object.keys(this.categoryRequests).length !== 0) debugger;
+      if(Object.keys(this.categoryRequests).length !== 0) {
+        console.warn("Unresolved cardIds:", Object.keys(this.categoryRequests))
+        for(const cardId of Object.keys(this.categoryRequests)) {
+          const request = this.categoryRequests[cardId];
+          request("all")
+        }
+
+      }
       this.createFakeNavItem("all", "all", "All", cardIds, {
         pathname: "/discover",
         search: ""
