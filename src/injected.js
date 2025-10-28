@@ -1,5 +1,33 @@
 (function() {
   const invasive = true;
+  const fixCard = {
+    "externalLinkUrl": null,
+    "dateCreated": 1,
+    "dateMarkedDefault": 0,
+    "configurationData": {
+      "card": {
+        "client": {}
+      }
+    },
+    "miniCardIcon": "file-signature",
+    "isVisible": true,
+    "externalLinkLabel": null,
+    "isExtensionTemplate": true,
+    "isLocked": true,
+    "roles": [
+      "EXP_ADMIN_BZ",
+      "EXP_EMPLOYEE_BZ"
+    ],
+    "isDefaultCard": false,
+    "dateMarkedLocked": 0,
+    "description": "MyMSU breaks without this",
+    "id": "my-msu-minus-card-fix",
+    "tags": [
+      "card"
+    ],
+    "type": "all-accounts|Ellucian|Foundation|Quick%20Links",
+    "title": "MyMSU Breaks without this"
+  }
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {
     const [resource, config] = args;
@@ -41,10 +69,19 @@
           data.cardsConfiguration = data.cardsConfiguration.filter(card => {
             return card.type !== "WysiwygCard" && card.type !== "all-accounts|Ellucian|Foundation|Quick%20Links"
           });
+          data.cardsConfiguration.push(fixCard)
         }
       }
       return data;
     });
+    overrideJson("api/categories", data => {
+      if(config.method === "GET" || !config.method) {
+        for(const categoryItem of data) {
+          categoryItem.cards.push(fixCard.id)
+        }
+      }
+      return data;
+    })
     return response;
   };
   if(!invasive) return
@@ -78,15 +115,15 @@
   /*
    * Helper function, returns promise for element by id
    */
-  function waitForElementId(id) {
+  function waitForElement(selector) {
     return new Promise(resolve => {
-      if(document.getElementById(id)) {
-        resolve(document.getElementById(id));
+      if(document.querySelector(selector)) {
+        resolve(document.querySelector(selector));
       } else {
         const observer = new MutationObserver(_ => {
-          if (document.getElementById(id)) {
+          if (document.querySelector(selector)) {
             observer.disconnect();
-            resolve(document.getElementById(id));
+            resolve(document.querySelector(selector));
           }
         });
         observer.observe(document.documentElement, {
@@ -505,12 +542,13 @@
         id: "MyMSUViewManager",
         //TODO: Better padding
         style: {
-          "padding-top": "4em",
           "padding-right": "1em",
-          "padding-left": "1em"
+          "padding-left": "1em",
+          "display": "block"
         }
       });
       this.domElement.addEventListener("disconnected", event => {
+        console.warn("DISCONNECTED")
         event.stopImmediatePropagation();
         event.preventDefault();
         // Appending to a new parent dispatches the event as well
@@ -546,9 +584,16 @@
     attach() {
       // Insert below native nav bar
       document.documentElement.appendChild(this.domElement);
-      waitForElementId("maincontent")
+      waitForElement("body")
         .then(element => {
-          document.getElementById("dashboard_tabs_container")
+          if(element.firstChild) {
+            element.insertBefore(this.domElement, element.firstChild);
+          } else {
+            element.appendChild(this.domElement)
+          }
+        })
+      waitForElement("#maincontent")
+        .then(element => {
           element.parentElement.insertBefore(this.domElement, element);
         });
     }
