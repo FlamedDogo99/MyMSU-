@@ -1,10 +1,3 @@
-function injectIntoMain() {
-  const injectScript = document.createElement("script");
-  injectScript.src = chrome.runtime.getURL("injected.js");
-  document.documentElement.appendChild(injectScript);
-}
-injectIntoMain();
-
 function waitForId(selector) {
   return new Promise((resolve) => {
     if (document.getElementById(selector)) {

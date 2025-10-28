@@ -3,7 +3,10 @@
     static: {
       API: {
         dashboard: "https://experience.elluciancloud.com/api/dashboard-load",
-        categories: "https://experience.elluciancloud.com/api/categories"
+        categories: "https://experience.elluciancloud.com/api/categories",
+        academic: "https://experience.elluciancloud.com/api/profile/academic-programs",
+        user: "https://experience.elluciancloud.com/api/user",
+        profile: "https://experience.elluciancloud.com/api/profile"
       },
       css: {
         react: {
@@ -322,7 +325,6 @@
               );
             });
             data.cardsConfiguration.push(Config.static.cards.fixCard);
-
           }
           return data;
         });
@@ -704,7 +706,6 @@
        */
       this.domElement = dom.el("view-element", {
         id: "MyMSUViewManager",
-        //TODO: Better padding
         style: {
           "padding-right": "1em",
           "padding-left": "1em",

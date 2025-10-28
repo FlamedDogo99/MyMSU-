@@ -9,6 +9,12 @@
       "js": ["content-script.js", "experimental.js"],
       "run_at": "document_start",
       "matches": ["https://experience.elluciancloud.com/montana*"]
+    },
+    {
+      "js": ["injected.js"],
+      "run_at": "document_start",
+      "matches": ["https://experience.elluciancloud.com/montana*"],
+      "world": "MAIN"
     }
   ],
   "description": "Style MyMSU like MyInfo",
