@@ -4,7 +4,8 @@
       API: {
         dashboard: "https://experience.elluciancloud.com/api/dashboard-load",
         categories: "https://experience.elluciancloud.com/api/categories",
-        academic: "https://experience.elluciancloud.com/api/profile/academic-programs",
+        academic:
+          "https://experience.elluciancloud.com/api/profile/academic-programs",
         user: "https://experience.elluciancloud.com/api/user",
         profile: "https://experience.elluciancloud.com/api/profile"
       },
@@ -48,25 +49,29 @@
     },
     get: {
       API: {
-        degreeworks: (gid) => "https://degreeworks.montana.edu:5559/DashboardServlet/bz_PROD/?SCRIPT=SD2WORKS&PORTALSTUID=" + gid,
-        embedded: (cardId) => "https://experience.elluciancloud.com/api/embedded-html/" + cardId
-
+        degreeworks: (gid) =>
+          "https://degreeworks.montana.edu:5559/DashboardServlet/bz_PROD/?SCRIPT=SD2WORKS&PORTALSTUID=" +
+          gid,
+        embedded: (cardId) =>
+          "https://experience.elluciancloud.com/api/embedded-html/" + cardId
       }
     }
-  }
+  };
 
   class SharedPromise {
-    promiseObject
+    promiseObject;
     promiseResolution;
     value;
     constructor() {
-      const self = this
-      this.promiseObject = new Promise(resolve => {
-        self.promiseResolution = resolve
-      })
+      const self = this;
+      this.promiseObject = new Promise((resolve) => {
+        self.promiseResolution = resolve;
+      });
     }
     get() {
-      return this.value ? new Promise(resolve => resolve(this.value)) : this.promiseObject
+      return this.value
+        ? new Promise((resolve) => resolve(this.value))
+        : this.promiseObject;
     }
     updatePromise(value) {
       this.value = value;
@@ -93,7 +98,7 @@
       const parser = new DOMParser();
       return parser.parseFromString(text, "text/html");
     }
-    static strip(html, options = {imageSubstitute: "Link"}) {
+    static strip(html, options = { imageSubstitute: "Link" }) {
       const images = Array.from(html.getElementsByTagName("img"));
       for (let image of images) {
         if (image.closest("a")) {
@@ -145,27 +150,27 @@
   }
   const dom = DomHelper;
 
-  customElements.define("view-element", class ViewElement extends HTMLElement {
-    disconnectedCallback() {
-      this.dispatchEvent(new Event("disconnected"));
+  customElements.define(
+    "view-element",
+    class ViewElement extends HTMLElement {
+      disconnectedCallback() {
+        this.dispatchEvent(new Event("disconnected"));
+      }
     }
-  });
+  );
 
   class OrderedDomView {
     children;
     body;
-
     constructor(className) {
       this.body = dom.el("div", {
         class: className
       });
       this.children = [];
     }
-
     getElement() {
       return this.body;
     }
-
     append(child, sortBy) {
       const childPair = {
         sortBy: sortBy,
@@ -176,6 +181,7 @@
         this.body.appendChild(child);
       } else {
         const index = this.children.findIndex((el) => {
+          // We aren't taking advantage of better searching algorithms :/
           return el.sortBy.localeCompare(sortBy) >= 0;
         });
         if (index === -1) {
@@ -187,6 +193,10 @@
           this.body.insertBefore(child, beforeChild);
         }
       }
+    }
+    remove(index) {
+      this.children[index].child.remove();
+      this.children.splice(index, 1);
     }
   }
 
@@ -210,15 +220,15 @@
           set: function (val) {
             this.___PRELOADED_STATE__ = val;
 
-            self.parseState(this.___PRELOADED_STATE__)
+            self.parseState(this.___PRELOADED_STATE__);
           },
           configurable: true
         }
       });
     }
     parseState(state) {
-      const value = JSON.parse(window.atob(state))
-      this.userDataPromise.updatePromise(value)
+      const value = JSON.parse(window.atob(state));
+      this.userDataPromise.updatePromise(value);
     }
 
     getUserData() {
@@ -229,7 +239,7 @@
     historyPromise;
     constructor() {
       this.initSetHooks();
-      this.historyPromise = new SharedPromise()
+      this.historyPromise = new SharedPromise();
     }
     initSetHooks() {
       function getState(element) {
@@ -239,9 +249,11 @@
         );
         if (reactKey) return element[reactKey]?.children?._owner?.stateNode;
       }
-      const internal = getState(document.getElementById(Config.static.css.react.stateContainer));
+      const internal = getState(
+        document.getElementById(Config.static.css.react.stateContainer)
+      );
       if (internal) {
-        this.handleInternal(internal)
+        this.handleInternal(internal);
         return;
       }
       const observer = new MutationObserver((_) => {
@@ -250,7 +262,7 @@
         );
         if (internal) {
           observer.disconnect();
-          this.handleInternal(internal)
+          this.handleInternal(internal);
         }
       });
       observer.observe(document.documentElement, {
@@ -269,19 +281,18 @@
   class NetworkManager {
     fetch;
     cachedNavigation;
-    reactManager
+    reactManager;
     history;
     listeners;
     constructor(reactManager) {
       this.reactManager = reactManager;
-      this.listeners = {}
+      this.listeners = {};
       this.initOverrides();
       this.initReactHistory();
       this.initListeners();
-
     }
     initOverrides() {
-      this.fetch = window.fetch
+      this.fetch = window.fetch;
       const self = this;
       window.fetch = async (...args) => {
         const [resource, config] = args;
@@ -316,7 +327,9 @@
         overrideJson("api/dashboard-load", (data) => {
           if (config.method === "GET" || !config.method) {
             data.announcements = data.announcements.filter((item) => {
-              return item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu";
+              return (
+                item.externalLinkUrl !== "https://www.montana.edu/uit/mymsu"
+              );
             });
             data.cardsConfiguration = data.cardsConfiguration.filter((card) => {
               return (
@@ -341,11 +354,12 @@
     }
     json(url) {
       const self = this;
-      return new Promise(resolve => {
-        self.fetch.call(window, url)
-          .then(response => response.json())
-          .then(json => resolve(json));
-      })
+      return new Promise((resolve) => {
+        self.fetch
+          .call(window, url)
+          .then((response) => response.json())
+          .then((json) => resolve(json));
+      });
     }
     getCurrentSlug() {
       const pathName = window.location.pathname;
@@ -367,13 +381,12 @@
       }
     }
     initReactHistory() {
-      this.reactManager.getHistory()
-        .then(propHistory => {
-          this.history = propHistory;
-          if (this.cachedNavigation) {
-            this.pushHistory(this.cachedNavigation);
-          }
-        })
+      this.reactManager.getHistory().then((propHistory) => {
+        this.history = propHistory;
+        if (this.cachedNavigation) {
+          this.pushHistory(this.cachedNavigation);
+        }
+      });
     }
     pushHistory(navigation) {
       this.cachedNavigation = navigation;
@@ -384,29 +397,70 @@
     initListeners() {
       window.addEventListener("popstate", (_) => {
         setTimeout(() => {
-          this.dispatch("history", null)
+          this.dispatch("history", null);
         }, 1);
       });
     }
     addEventListener(type, callback) {
-      if(!this.listeners[type]) {
-        this.listeners[type] = []
+      if (!this.listeners[type]) {
+        this.listeners[type] = [];
       }
-      this.listeners[type].push(callback)
+      this.listeners[type].push(callback);
     }
     dispatch(type, data) {
-      const listeners = this.listeners[type]
-      if(listeners) {
-        for(const listener of listeners) {
-          listener(data)
+      const listeners = this.listeners[type];
+      if (listeners) {
+        for (const listener of listeners) {
+          listener(data);
         }
       }
     }
     getLastNavigation() {
-      return this.cachedNavigation
+      return this.cachedNavigation;
     }
     setLastNavigation(navigation) {
       this.cachedNavigation = navigation;
+    }
+  }
+  class NotificationManager {
+    notificationIdMap;
+    previousNotificationIds;
+    constructor() {
+      this.notificationIdMap = {};
+      this.previousNotificationIds = new Set();
+    }
+    loadNotifications(notifications) {
+      const removedNotifications = new Set(this.previousNotificationIds);
+      for (const notification of notifications) {
+        const id = notification.id;
+        if (this.previousNotificationIds.has(id)) {
+          removedNotifications.delete(id);
+          continue;
+        }
+
+        this.previousNotificationIds.add(id);
+        this.notificationIdMap[id] = {
+          start: notification.created,
+          visibile: notification.starts,
+          end: notification.expires,
+          message: notification.message,
+          source: notification.source
+        };
+        this.notificationIdMap[id].element = this.createElement(
+          this.notificationIdMap[id]
+        );
+      }
+      for (const notificationId of removedNotifications.keys()) {
+        this.previousNotificationIds.delete(notificationId);
+        this.notificationIdMap[notificationId].element.remove();
+        delete this.notificationIdMap[notificationId];
+      }
+    }
+    createElement(notificationNumber) {
+      return null;
+    }
+    getFormattedDate(number) {
+      return new Date(number * 1000).toLocaleString();
     }
   }
 
@@ -419,7 +473,6 @@
     cardClassMap; // cardId -> navId class
     categoryRequests; // array of requested categories for cardIds
 
-
     constructor(viewManager, userDataManager, networkManager) {
       super("navManager");
       this.viewManager = viewManager;
@@ -430,13 +483,16 @@
       this.cardClassMap = {};
       this.categoryRequests = {};
 
-      this.networkManager.addEventListener("history", this.historyChanged)
+      this.networkManager.addEventListener("history", this.historyChanged);
     }
     historyChanged() {
       const categoryItem = this.getCategoryBySlug(
         this.networkManager.getCurrentSlug()
       );
-      if (categoryItem && categoryItem.navigation !== this.networkManager.getLastNavigation()) {
+      if (
+        categoryItem &&
+        categoryItem.navigation !== this.networkManager.getLastNavigation()
+      ) {
         // The nav bar does not reflect the url state, update
         this.networkManager.setLastNavigation(categoryItem.navigation);
         this.setNavSelection(categoryItem.id);
@@ -466,7 +522,7 @@
           category.label
         );
       }
-      this.isResourceLoaded = true
+      this.isResourceLoaded = true;
     }
     createNavElement(id, label) {
       const item = dom.el("span", {
@@ -606,18 +662,17 @@
         this.cardIdMap[card.id] = { card: card };
         // For all the embedded cards, fetch each individual resource and handle it
         if (card.type === Config.static.cards.types.embedded) {
-          this.networkManager.json(Config.get.API.embedded(card.id))
-            .then(htmlString => {
+          this.networkManager
+            .json(Config.get.API.embedded(card.id))
+            .then((htmlString) => {
               this.handleCard(
                 dom.strip(dom.string(htmlString), {
                   imageSubstitute: card.title
                 }),
                 card
               );
-            })
-        } else if (
-          card.type === Config.static.cards.types.list
-        ) {
+            });
+        } else if (card.type === Config.static.cards.types.list) {
           const linkList =
             card.configurationData.card.customConfiguration.client.linkList;
           const links = linkList.map((link) => {
@@ -626,13 +681,14 @@
             ]);
           });
           this.handleCard(links, card);
-        } else if (card.type.indexOf(Config.static.cards.types.degreeworks) !== -1) {
+        } else if (
+          card.type.indexOf(Config.static.cards.types.degreeworks) !== -1
+        ) {
           const degreeworksLink = dom.el("a", {}, [
             dom.el("p", { text: card.title })
           ]);
           this.userDataManager.getUserData().then((data) => {
-            degreeworksLink.href =
-              Config.get.API.degreeworks(data.user.erpId)
+            degreeworksLink.href = Config.get.API.degreeworks(data.user.erpId);
           });
           this.handleCard([degreeworksLink], {
             title: card.title,
@@ -690,15 +746,23 @@
     cardManager;
     userDataManager;
     networkManager;
-    reactManager
+    reactManager;
     domElement;
     body;
     constructor() {
       this.reactManager = new ReactManager();
-      this.networkManager = new NetworkManager(this.reactManager)
+      this.networkManager = new NetworkManager(this.reactManager);
       this.userDataManager = new UserDataManager();
-      this.navManager = new NavManager(this, this.userDataManager, this.networkManager);
-      this.cardManager = new CardManager(this, this.userDataManager, this.networkManager);
+      this.navManager = new NavManager(
+        this,
+        this.userDataManager,
+        this.networkManager
+      );
+      this.cardManager = new CardManager(
+        this,
+        this.userDataManager,
+        this.networkManager
+      );
     }
     build() {
       /*
@@ -744,7 +808,10 @@
       this.domElement.shadowRoot.appendChild(resetElement);
       this.loadResources();
       // Cheap way to hide native navbar
-      dom.addStyling(document, Config.static.css.react.tabs + "{display:none !important;}")
+      dom.addStyling(
+        document,
+        Config.static.css.react.tabs + "{display:none !important;}"
+      );
 
       this.attach();
     }
@@ -757,22 +824,26 @@
         } else {
           element.appendChild(this.domElement);
         }
-        dom.waitForElement(Config.static.css.react.tabsParent).then((element) => {
-          element.parentElement.insertBefore(this.domElement, element);
-        });
+        dom
+          .waitForElement(Config.static.css.react.tabsParent)
+          .then((element) => {
+            element.parentElement.insertBefore(this.domElement, element);
+          });
       });
     }
     loadResources() {
-      this.networkManager.json(Config.static.API.categories)
-        .then(categories => {
-          this.navManager.parseCategories(categories)
+      this.networkManager
+        .json(Config.static.API.categories)
+        .then((categories) => {
+          this.navManager.parseCategories(categories);
           this.checkIsLoaded();
-        })
-      this.networkManager.json(Config.static.API.dashboard)
-        .then(dashboard => {
-          this.cardManager.parseDashboard(dashboard)
-          this.checkIsLoaded()
-        })
+        });
+      this.networkManager
+        .json(Config.static.API.dashboard)
+        .then((dashboard) => {
+          this.cardManager.parseDashboard(dashboard);
+          this.checkIsLoaded();
+        });
     }
     checkIsLoaded() {
       if (
@@ -794,7 +865,7 @@
       dom.replaceStyling(
         this.domElement.shadowRoot,
         `.id-${id} {display: initial !important}`
-      )
+      );
 
       shouldPush && this.networkManager.pushHistory(navigation);
     }
