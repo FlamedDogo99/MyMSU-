@@ -159,44 +159,72 @@
     }
   );
 
+
   class OrderedDomView {
-    children;
+    internalChildren;
+    pendingActions;
+    frameRequested;
     body;
     constructor(className) {
       this.body = dom.el("div", {
         class: className
       });
-      this.children = [];
+      this.internalChildren = [];
+      this.pendingActions = [];
+      this.frameRequested = false;
     }
     getElement() {
       return this.body;
     }
-    append(child, sortBy) {
-      const childPair = {
-        sortBy: sortBy,
-        child: child
-      };
-      if (this.children.length === 0) {
-        this.children.push(childPair);
-        this.body.appendChild(child);
-      } else {
-        const index = this.children.findIndex((el) => {
-          // We aren't taking advantage of better searching algorithms :/
-          return el.sortBy.localeCompare(sortBy) >= 0;
-        });
-        if (index === -1) {
-          this.children.push(childPair);
-          this.body.appendChild(child);
+    compare(a,b) {
+      return a.localeCompare(b) < 0
+    }
+    append(element, sortBy) {
+      let low = 0
+      let high = this.internalChildren.length;
+      while (low < high) {
+        const mid = (low + high) >> 1;
+        if(this.compare(this.internalChildren[mid], sortBy)) {
+          low = mid + 1;
         } else {
-          const beforeChild = this.children[index].child;
-          this.children.splice(index, 0, childPair);
-          this.body.insertBefore(child, beforeChild);
+          high = mid;
         }
       }
+      this.internalChildren.splice(low, 0, sortBy);
+
+      this.pendingActions.push({type: "insert", element: element, index: low});
+      this.scheduledFrame()
     }
-    remove(index) {
-      this.children[index].child.remove();
-      this.children.splice(index, 1);
+    remove(element, sortBy) {
+      const index = this.internalChildren.indexOf(sortBy);
+      if(index !== -1) this.internalChildren.splice(index, 1);
+      this.pendingActions.push({type: "remove", element})
+      this.scheduledFrame();
+    }
+    scheduledFrame() {
+      if(!this.frameRequested) {
+        this.frameRequested = true;
+        requestAnimationFrame(() => {
+          const pending = this.pendingActions;
+          this.pendingActions = []
+          this.flushPending(pending)
+        })
+      }
+    }
+    flushPending(pending) {
+      const children = this.body.children
+      for(const action of pending) {
+        if(action.type === "insert") {
+          if (children.length === 0 || action.index > children.length - 1) {
+            this.body.appendChild(action.element);
+          } else {
+            this.body.insertBefore(action.element, children[action.index]);
+          }
+        } else {
+          action.element.remove();
+        }
+      }
+      this.frameRequested = false;
     }
   }
 
