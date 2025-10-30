@@ -473,7 +473,6 @@
           visibile: notification.starts,
           end: notification.expires,
           message: notification.message,
-          source: notification.source
         };
         const element = this.createElement(this.notificationIdMap[id])
         this.notificationIdMap[id].element = element
@@ -486,7 +485,19 @@
       }
     }
     createElement(notification) {
-      return dom.el("p",{text: notification.message})
+      const start = this.getFormattedDate(notification.start);
+      const visible = this.getFormattedDate(notification.visibile);
+      const end = this.getFormattedDate(notification.end)
+      return dom.el("div",{class: "notification"}, [
+        dom.el("p", {
+          class: "notification-message",
+          text: "Card(s) added: " + notification.message
+        }),
+        dom.el("p", {
+          class: "notification-details",
+          text: "Starts: " + start + ", Visible: " + visible + ", Ends: " + end
+        })
+      ])
     }
     getFormattedDate(number) {
       return new Date(number * 1000).toLocaleString();

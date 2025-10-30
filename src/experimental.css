@@ -19,6 +19,11 @@
   display: list-item;
   list-style-position: outside;
 }
+.notification > .notification-details {
+    margin-left: 2.5em;
+    display: list-item;
+    list-style-position: outside;
+}
 .card-contents *:empty {
   display: none;
 }
