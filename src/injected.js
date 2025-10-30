@@ -4,10 +4,10 @@
       API: {
         dashboard: "https://experience.elluciancloud.com/api/dashboard-load",
         categories: "https://experience.elluciancloud.com/api/categories",
-        academic:
-          "https://experience.elluciancloud.com/api/profile/academic-programs",
+        academic: "https://experience.elluciancloud.com/api/profile/academic-programs",
         user: "https://experience.elluciancloud.com/api/user",
-        profile: "https://experience.elluciancloud.com/api/profile"
+        profile: "https://experience.elluciancloud.com/api/profile",
+        notifications: "https://experience.elluciancloud.com/api/notifications"
       },
       css: {
         react: {
@@ -450,10 +450,11 @@
       this.cachedNavigation = navigation;
     }
   }
-  class NotificationManager {
+  class NotificationManager extends OrderedDomView {
     notificationIdMap;
     previousNotificationIds;
     constructor() {
+      super("notificationManager");
       this.notificationIdMap = {};
       this.previousNotificationIds = new Set();
     }
@@ -474,18 +475,18 @@
           message: notification.message,
           source: notification.source
         };
-        this.notificationIdMap[id].element = this.createElement(
-          this.notificationIdMap[id]
-        );
+        const element = this.createElement(this.notificationIdMap[id])
+        this.notificationIdMap[id].element = element
+        this.append(element, this.notificationIdMap[id].visible)
       }
       for (const notificationId of removedNotifications.keys()) {
         this.previousNotificationIds.delete(notificationId);
-        this.notificationIdMap[notificationId].element.remove();
+        this.remove(this.notificationIdMap[notificationId].element, this.notificationIdMap[id].visible)
         delete this.notificationIdMap[notificationId];
       }
     }
-    createElement(notificationNumber) {
-      return null;
+    createElement(notification) {
+      return dom.el("p",{text: notification.message})
     }
     getFormattedDate(number) {
       return new Date(number * 1000).toLocaleString();
@@ -774,6 +775,7 @@
     cardManager;
     userDataManager;
     networkManager;
+    notificationManager;
     reactManager;
     domElement;
     body;
@@ -791,6 +793,7 @@
         this.userDataManager,
         this.networkManager
       );
+      this.notificationManager = new NotificationManager();
     }
     build() {
       /*
@@ -818,6 +821,7 @@
           class: "body"
         },
         [
+          this.notificationManager.getElement(),
           this.navManager.getElement(),
           dom.el("div", { class: "yellow-bar" }),
           this.cardManager.getElement()
@@ -872,6 +876,11 @@
           this.cardManager.parseDashboard(dashboard);
           this.checkIsLoaded();
         });
+      this.networkManager
+        .json(Config.static.API.notifications)
+        .then(notifications => {
+          this.notificationManager.loadNotifications(notifications)
+        })
     }
     checkIsLoaded() {
       if (
