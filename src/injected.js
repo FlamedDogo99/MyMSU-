@@ -94,30 +94,55 @@
       if (children && children.length !== 0) element.append(...children);
       return element;
     }
-    static string(text) {
+    static aggressiveSanitize(string, imageAltReplacement = "link") {
+      function getType(element) {
+        const supportedElements = ["img", "a", "address", "article", "aside", "footer", "header", "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "main", "nav", "selection", "search", "blockquote", "dd", "div", "dl", "dt", "figcaption", "figure", "hr", "li", "menu", "ol", "p", "pre", "ul", "a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "dfn", "em", "i", "kbd", "mark", "q", "rprt", "ruby", "s", "samp", "small", "span", "strong", "sub", "sup", "time", "u", "var", "wbr"];
+        const type = element.tagName.toLowerCase()
+        return supportedElements.includes(type) ? type : ""
+      }
+
       const parser = new DOMParser();
-      return parser.parseFromString(text, "text/html");
-    }
-    static strip(html, options = { imageSubstitute: "Link" }) {
-      const images = Array.from(html.getElementsByTagName("img"));
-      for (let image of images) {
-        if (image.closest("a")) {
-          const alt = image.alt;
-          image.replaceWith(
-            this.el("p", {
-              class: "replace-image",
-              text: alt && alt !== "" ? alt : options.imageSubstitute
-            })
-          );
-        } else {
-          image.remove();
+      const body = parser.parseFromString(string, "text/html").body;
+      const container = document.createElement("div")
+      let stack = []
+      body.childNodes.forEach(child => {
+        stack.push({element: child, parent: container})
+      });
+      while (stack.length !== 0) {
+        const item = stack.shift();
+        if (item.element.nodeType === 3) {
+          item.parent.appendChild(document.createTextNode(item.element.textContent))
+        } else if (item.element.nodeType === 1) {
+          const type = getType(item.element);
+          if(!type) continue;
+          const element = document.createElement(type)
+          if (type === "img") {
+            if (item.element.closest("a")) {
+              const altText = item.element.getAttribute("alt");
+              item.parent.appendChild(document.createTextNode(!altText || altText === "" ? imageAltReplacement : altText));
+            }
+            continue;
+          }
+          if (type === "a") {
+            const href = item.element.getAttribute("href") || "";
+            try {
+              const url = new URL(href, document.baseURI);
+              if (["http:", "https:"].includes(url.protocol)) {
+                element.setAttribute("href", url.href);
+                element.setAttribute("rel", "noopener noreferrer");
+                element.setAttribute("target", "_blank");
+              }
+            } catch(_) {}
+          }
+          item.parent.appendChild(element)
+          for(const child of item.element.childNodes) {
+            stack.push({element: child, parent: element})
+          }
         }
       }
-      const brs = Array.from(html.getElementsByTagName("br"));
-      for (let br of brs) {
-        br.remove();
-      }
-      return Array.from(html.body.children);
+      const results = Array.from(container.children)
+      container.remove()
+      return results
     }
     static waitForElement(selector) {
       return new Promise((resolve) => {
@@ -704,14 +729,7 @@
         if (card.type === Config.static.cards.types.embedded) {
           this.networkManager
             .json(Config.get.API.embedded(card.id))
-            .then((htmlString) => {
-              this.handleCard(
-                dom.strip(dom.string(htmlString), {
-                  imageSubstitute: card.title
-                }),
-                card
-              );
-            });
+            .then((htmlString) => this.handleCard(dom.aggressiveSanitize(htmlString, card.title), card));
         } else if (card.type === Config.static.cards.types.list) {
           const linkList =
             card.configurationData.card.customConfiguration.client.linkList;
